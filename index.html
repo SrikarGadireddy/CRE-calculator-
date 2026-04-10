@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kingswood Cove — CRE Investment Analysis Platform</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --sidebar: #161b22; --card: #1c2128; --card2: #21262d;
+    --border: #30363d; --accent: #58a6ff; --green: #3fb950; --yellow: #d29922;
+    --red: #f85149; --purple: #bc8cff; --orange: #ffa657;
+    --text: #e6edf3; --muted: #8b949e; --sidebar-w: 264px;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+  a { color: var(--accent); text-decoration: none; }
+
+  /* ── Layout ── */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+  .main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* ── Sidebar ── */
+  .sidebar-header { padding: 20px 16px 14px; border-bottom: 1px solid var(--border); }
+  .prop-badge { display: inline-block; background: rgba(88,166,255,.15); color: var(--accent); font-size: 10px; font-weight: 600; letter-spacing: .5px; padding: 2px 7px; border-radius: 10px; margin-bottom: 8px; }
+  .prop-name { font-size: 16px; font-weight: 700; line-height: 1.2; }
+  .prop-sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+  .completeness { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .comp-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; font-size: 12px; font-weight: 600; }
+  .comp-pct { color: var(--yellow); }
+  .comp-bar-bg { height: 6px; background: var(--card2); border-radius: 3px; overflow: hidden; }
+  .comp-bar-fill { height: 100%; width: 62%; background: linear-gradient(90deg, var(--yellow), var(--orange)); border-radius: 3px; }
+  .comp-fields { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .comp-field { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  .comp-field .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-ok { background: var(--green); }
+  .dot-miss { background: var(--red); }
+
+  .tab-nav { padding: 8px 8px; flex: 1; }
+  .tab-nav h4 { font-size: 10px; font-weight: 600; letter-spacing: .8px; color: var(--muted); text-transform: uppercase; padding: 6px 8px 4px; }
+  .tab-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; background: transparent; color: var(--muted); cursor: pointer; border-radius: 6px; text-align: left; font-size: 13px; transition: background .15s, color .15s; }
+  .tab-btn:hover { background: var(--card2); color: var(--text); }
+  .tab-btn.active { background: rgba(88,166,255,.12); color: var(--accent); font-weight: 600; }
+  .tab-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+  .tab-num { margin-left: auto; font-size: 10px; color: var(--muted); }
+
+  /* ── Main content ── */
+  .tab-panel { display: none; padding: 24px 28px; }
+  .tab-panel.active { display: block; }
+  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+
+  /* KPI Grid */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; border-left: 3px solid var(--border); }
+  .kpi-card.good { border-left-color: var(--green); }
+  .kpi-card.caution { border-left-color: var(--yellow); }
+  .kpi-card.info { border-left-color: var(--accent); }
+  .kpi-card.purple { border-left-color: var(--purple); }
+  .kpi-label { font-size: 11px; color: var(--muted); font-weight: 500; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .4px; }
+  .kpi-value { font-size: 22px; font-weight: 700; line-height: 1; }
+  .kpi-badge { display: inline-block; margin-top: 6px; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+  .badge-green { background: rgba(63,185,80,.15); color: var(--green); }
+  .badge-yellow { background: rgba(210,153,34,.15); color: var(--yellow); }
+  .badge-blue { background: rgba(88,166,255,.15); color: var(--accent); }
+  .badge-red { background: rgba(248,81,73,.15); color: var(--red); }
+
+  /* Section headers */
+  .section-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+  /* Tables */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { background: var(--card2); color: var(--muted); font-weight: 600; text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+  .data-table td { padding: 9px 12px; border-top: 1px solid var(--border); }
+  .data-table tr:hover td { background: rgba(255,255,255,.02); }
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+  .table-wrap .section-title { padding: 12px 16px 8px; margin-bottom: 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+
+  /* Two-col layout */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .panel-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .panel-box .section-title { margin-bottom: 10px; }
+
+  /* Stat rows */
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(48,54,61,.6); font-size: 13px; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: var(--muted); }
+  .stat-val { font-weight: 600; }
+
+  /* ── Analyst Calc Zone ── */
+  .calc-zone { background: var(--sidebar); border-top: 2px solid var(--accent); padding: 24px 28px; }
+  .calc-zone-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap-8px; }
+  .calc-zone-title span { margin-right: 8px; }
+  .calc-zone-sub { color: var(--muted); font-size: 12px; margin-bottom: 20px; }
+  .sliders-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px; }
+  .slider-group label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
+  .slider-group label span { color: var(--text); font-weight: 700; }
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px; background: var(--border); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+  .calc-outputs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }
+  .calc-output { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; text-align: center; }
+  .calc-output-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+  .calc-output-val { font-size: 18px; font-weight: 700; color: var(--accent); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--accent); color: #0f1117; }
+  .btn-secondary { background: var(--card2); color: var(--text); border: 1px solid var(--border); }
+  .btn-green { background: var(--green); color: #0f1117; }
+  .btn-purple { background: var(--purple); color: #0f1117; }
+  #scenario-table-wrap { margin-top: 16px; }
+  #scenario-table-wrap h4 { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+
+  /* ── Chat ── */
+  .chat-zone { background: var(--bg); border-top: 1px solid var(--border); padding: 24px 28px; }
+  .chat-title { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .chat-sub { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+  .quick-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .quick-btn { background: var(--card); border: 1px solid var(--border); color: var(--muted); border-radius: 16px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: background .15s, color .15s; }
+  .quick-btn:hover { background: var(--card2); color: var(--text); border-color: var(--accent); }
+  .chat-history { background: var(--card); border: 1px solid var(--border); border-radius: 8px; min-height: 180px; max-height: 320px; overflow-y: auto; padding: 12px 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .chat-msg { display: flex; flex-direction: column; gap: 2px; }
+  .chat-msg-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+  .chat-msg-role.user { color: var(--accent); }
+  .chat-msg-role.assistant { color: var(--green); }
+  .chat-msg-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+  .chat-input-row { display: flex; gap: 8px; }
+  .chat-input-row input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 9px 12px; font-size: 13px; outline: none; }
+  .chat-input-row input:focus { border-color: var(--accent); }
+  .api-key-note { background: rgba(210,153,34,.1); border: 1px solid rgba(210,153,34,.3); border-radius: 6px; padding: 10px 14px; font-size: 12px; color: var(--yellow); margin-bottom: 12px; }
+
+  /* ── Sensitivity table ── */
+  .sens-table th, .sens-table td { text-align: center; }
+  .sens-table th:first-child, .sens-table td:first-child { text-align: left; }
+  .sens-hi { color: var(--green); font-weight: 700; }
+  .sens-lo { color: var(--red); font-weight: 700; }
+
+  /* ── Risk matrix ── */
+  .risk-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 8px; }
+  .risk-cell { height: 36px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+  .risk-low { background: rgba(63,185,80,.2); color: var(--green); }
+  .risk-med { background: rgba(210,153,34,.2); color: var(--yellow); }
+  .risk-hi { background: rgba(248,81,73,.2); color: var(--red); }
+
+  /* ── Checklist ── */
+  .checklist { display: flex; flex-direction: column; gap: 8px; }
+  .check-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .check-item .ck { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+  .ck-done { background: rgba(63,185,80,.2); color: var(--green); }
+  .ck-pend { background: rgba(248,81,73,.15); color: var(--red); }
+
+  /* DD tracker */
+  .dd-track { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+  .dd-step { display: flex; align-items: center; gap: 12px; }
+  .dd-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .dd-done { background: var(--green); }
+  .dd-pend { background: var(--border); }
+  .dd-act { background: var(--accent); }
+  .dd-label { font-size: 13px; }
+  .dd-date { margin-left: auto; font-size: 11px; color: var(--muted); }
+
+  /* Memo output */
+  #memo-output { background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; min-height: 80px; margin-top: 14px; color: var(--text); display: none; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .sliders-grid { grid-template-columns: 1fr 1fr; }
+    .calc-outputs { grid-template-columns: repeat(3, 1fr); }
+    .two-col, .three-col { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .app { flex-direction: column; }
+    .sidebar { width: 100%; min-width: unset; height: auto; }
+    .sliders-grid { grid-template-columns: 1fr; }
+    .calc-outputs { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="prop-badge">DSP ANALYSIS TOOL</div>
+    <div class="prop-name">Kingswood Cove</div>
+    <div class="prop-sub">200 Units · Austin, TX MSA · Multifamily</div>
+  </div>
+
+  <div class="completeness">
+    <div class="comp-label">
+      <span>Data Completeness</span>
+      <span class="comp-pct">62%</span>
+    </div>
+    <div class="comp-bar-bg"><div class="comp-bar-fill"></div></div>
+    <div class="comp-fields">
+      <div class="comp-field"><div class="dot dot-ok"></div>Purchase Price</div>
+      <div class="comp-field"><div class="dot dot-ok"></div>NOI / Cap Rate</div>
+      <div class="comp-field"><div class="dot dot-ok"></div>Occupancy Data</div>
+      <div class="comp-field"><div class="dot dot-ok"></div>Unit Mix</div>
+      <div class="comp-field"><div class="dot dot-ok"></div>Loan Terms</div>
+      <div class="comp-field"><div class="dot dot-miss"></div>T12 Actuals</div>
+      <div class="comp-field"><div class="dot dot-miss"></div>Rent Roll File</div>
+      <div class="comp-field"><div class="dot dot-miss"></div>PCA Report</div>
+      <div class="comp-field"><div class="dot dot-miss"></div>Loan Term Sheet</div>
+    </div>
+  </div>
+
+  <nav class="tab-nav">
+    <h4>KPI Modules</h4>
+    <button class="tab-btn active" onclick="switchTab('returns',this)">
+      <span class="tab-icon">📈</span> Investment Returns <span class="tab-num">6</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('operating',this)">
+      <span class="tab-icon">🏢</span> Operating Performance <span class="tab-num">8</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('leasing',this)">
+      <span class="tab-icon">🔑</span> Leasing &amp; Occupancy <span class="tab-num">9</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('units',this)">
+      <span class="tab-icon">🛠️</span> Unit Economics <span class="tab-num">7</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('credit',this)">
+      <span class="tab-icon">🏦</span> Credit &amp; Debt Service <span class="tab-num">7</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('valuation',this)">
+      <span class="tab-icon">💰</span> Valuation &amp; Exit <span class="tab-num">8</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('market',this)">
+      <span class="tab-icon">🗺️</span> Market &amp; Portfolio <span class="tab-num">6</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('esg',this)">
+      <span class="tab-icon">🌱</span> ESG &amp; Risk <span class="tab-num">8</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('ai',this)">
+      <span class="tab-icon">🤖</span> AI Recommendation <span class="tab-num">5</span>
+    </button>
+  </nav>
+</aside>
+
+<!-- ═══════════════════ MAIN ═══════════════════ -->
+<main class="main">
+
+  <!-- ── TAB 1: Investment Returns ── -->
+  <div class="tab-panel active" id="tab-returns">
+    <div class="page-title">Investment Returns</div>
+    <div class="page-sub">Kingswood Cove · $28,000,000 Purchase Price · 5-Year Hold</div>
+    <div class="kpi-grid">
+      <div class="kpi-card good">
+        <div class="kpi-label">IRR (Levered)</div>
+        <div class="kpi-value">16.2%</div>
+        <div class="kpi-badge badge-green">▲ Above 15% hurdle</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Equity Multiple (MOIC)</div>
+        <div class="kpi-value">1.85×</div>
+        <div class="kpi-badge badge-green">Target ≥ 1.7×</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Cash-on-Cash Y1</div>
+        <div class="kpi-value">5.8%</div>
+        <div class="kpi-badge badge-green">Above 5% min</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">LTV</div>
+        <div class="kpi-value">65%</div>
+        <div class="kpi-badge badge-yellow">Within policy ≤ 70%</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">LTC</div>
+        <div class="kpi-value">67%</div>
+        <div class="kpi-badge badge-yellow">Within policy ≤ 70%</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Debt Yield</div>
+        <div class="kpi-value">8.0%</div>
+        <div class="kpi-badge badge-green">Above 7.5% min</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Equity Required</div>
+        <div class="kpi-value">$9.8M</div>
+        <div class="kpi-badge badge-blue">35% of purchase</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Total Return (5yr)</div>
+        <div class="kpi-value">$8.1M</div>
+        <div class="kpi-badge badge-blue">Cash + appreciation</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="panel-box">
+        <div class="section-title">Return Summary</div>
+        <div class="stat-row"><span class="stat-label">Purchase Price</span><span class="stat-val">$28,000,000</span></div>
+        <div class="stat-row"><span class="stat-label">Loan Amount (65% LTV)</span><span class="stat-val">$18,200,000</span></div>
+        <div class="stat-row"><span class="stat-label">Equity Invested</span><span class="stat-val">$9,800,000</span></div>
+        <div class="stat-row"><span class="stat-label">Projected Exit Value (Yr 5)</span><span class="stat-val">$23,500,000</span></div>
+        <div class="stat-row"><span class="stat-label">Loan Payoff at Exit</span><span class="stat-val">~$16,700,000</span></div>
+        <div class="stat-row"><span class="stat-label">Net Equity at Exit</span><span class="stat-val">~$6,800,000</span></div>
+        <div class="stat-row"><span class="stat-label">5yr Cumulative Cash Flow</span><span class="stat-val">~$3,800,000</span></div>
+        <div class="stat-row"><span class="stat-label">Total Profit</span><span class="stat-val">~$8,100,000</span></div>
+      </div>
+      <div class="panel-box">
+        <div class="section-title">Annual Cash-on-Cash Projection</div>
+        <table class="data-table">
+          <thead><tr><th>Year</th><th>NOI</th><th>Debt Service</th><th>NCF</th><th>CoC</th></tr></thead>
+          <tbody>
+            <tr><td>Y1</td><td>$1,456,000</td><td>$1,137,800</td><td>$318,200</td><td>5.8%</td></tr>
+            <tr><td>Y2</td><td>$1,485,120</td><td>$1,137,800</td><td>$347,320</td><td>6.3%</td></tr>
+            <tr><td>Y3</td><td>$1,514,822</td><td>$1,137,800</td><td>$377,022</td><td>6.9%</td></tr>
+            <tr><td>Y4</td><td>$1,545,119</td><td>$1,137,800</td><td>$407,319</td><td>7.4%</td></tr>
+            <tr><td>Y5</td><td>$1,576,021</td><td>$1,137,800</td><td>$438,221</td><td>8.0%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 2: Operating Performance ── -->
+  <div class="tab-panel" id="tab-operating">
+    <div class="page-title">Operating Performance</div>
+    <div class="page-sub">T12 Trailing — Kingswood Cove · 200 Units</div>
+    <div class="kpi-grid">
+      <div class="kpi-card good">
+        <div class="kpi-label">Net Operating Income</div>
+        <div class="kpi-value">$1,456K</div>
+        <div class="kpi-badge badge-green">NOI/Unit: $7,280</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Effective Gross Income</div>
+        <div class="kpi-value">$3,240K</div>
+        <div class="kpi-badge badge-blue">EGI/Unit: $16,200</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Operating Expense Ratio</div>
+        <div class="kpi-value">55%</div>
+        <div class="kpi-badge badge-yellow">Benchmark: 45–55%</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">NOI Margin</div>
+        <div class="kpi-value">44.9%</div>
+        <div class="kpi-badge badge-green">Target ≥ 40%</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Gross Potential Rent</div>
+        <div class="kpi-value">$3,600K</div>
+        <div class="kpi-badge badge-blue">GPR/Unit: $18,000</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Vacancy Loss</div>
+        <div class="kpi-value">$360K</div>
+        <div class="kpi-badge badge-yellow">8% of GPR</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Total Expenses</div>
+        <div class="kpi-value">$1,784K</div>
+        <div class="kpi-badge badge-blue">$8,920/unit</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Expense/Unit/Mo</div>
+        <div class="kpi-value">$743</div>
+        <div class="kpi-badge badge-green">Benchmark ≤ $800</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="table-wrap">
+        <div class="section-title">Expense Breakdown</div>
+        <table class="data-table">
+          <thead><tr><th>Category</th><th>Annual</th><th>/Unit</th><th>% of EGI</th></tr></thead>
+          <tbody>
+            <tr><td>Property Taxes</td><td>$180,000</td><td>$900</td><td>5.6%</td></tr>
+            <tr><td>Insurance</td><td>$72,000</td><td>$360</td><td>2.2%</td></tr>
+            <tr><td>Management Fee (5%)</td><td>$162,000</td><td>$810</td><td>5.0%</td></tr>
+            <tr><td>Maintenance &amp; Repairs</td><td>$216,000</td><td>$1,080</td><td>6.7%</td></tr>
+            <tr><td>Utilities (Common)</td><td>$108,000</td><td>$540</td><td>3.3%</td></tr>
+            <tr><td>Payroll / Admin</td><td>$324,000</td><td>$1,620</td><td>10.0%</td></tr>
+            <tr><td>Capital Reserves</td><td>$72,000</td><td>$360</td><td>2.2%</td></tr>
+            <tr><td>Landscaping / Other</td><td>$650,000</td><td>$3,250</td><td>20.1%</td></tr>
+            <tr><td><strong>Total Expenses</strong></td><td><strong>$1,784,000</strong></td><td><strong>$8,920</strong></td><td><strong>55.1%</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-box">
+        <div class="section-title">Income Bridge</div>
+        <div class="stat-row"><span class="stat-label">Gross Potential Rent (GPR)</span><span class="stat-val">$3,600,000</span></div>
+        <div class="stat-row"><span class="stat-label">Less: Vacancy (8%)</span><span class="stat-val" style="color:var(--red)">− $288,000</span></div>
+        <div class="stat-row"><span class="stat-label">Less: Concessions (2%)</span><span class="stat-val" style="color:var(--red)">− $72,000</span></div>
+        <div class="stat-row"><span class="stat-label">Add: Other Income</span><span class="stat-val" style="color:var(--green)">+ $108,000</span></div>
+        <div class="stat-row"><span class="stat-label"><strong>= Effective Gross Income</strong></span><span class="stat-val"><strong>$3,240,000</strong></span></div>
+        <div class="stat-row"><span class="stat-label">Less: Total Expenses</span><span class="stat-val" style="color:var(--red)">− $1,784,000</span></div>
+        <div class="stat-row"><span class="stat-label"><strong>= Net Operating Income</strong></span><span class="stat-val" style="color:var(--green)"><strong>$1,456,000</strong></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 3: Leasing & Occupancy ── -->
+  <div class="tab-panel" id="tab-leasing">
+    <div class="page-title">Leasing &amp; Occupancy</div>
+    <div class="page-sub">Current Snapshot · Kingswood Cove · 200 Units</div>
+    <div class="kpi-grid">
+      <div class="kpi-card good">
+        <div class="kpi-label">Physical Occupancy</div>
+        <div class="kpi-value">92%</div>
+        <div class="kpi-badge badge-green">184 / 200 units</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Economic Occupancy</div>
+        <div class="kpi-value">90%</div>
+        <div class="kpi-badge badge-green">Concession adj.</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Leased %</div>
+        <div class="kpi-value">94%</div>
+        <div class="kpi-badge badge-green">Including notice</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Trade-out Trend</div>
+        <div class="kpi-value">+2.8%</div>
+        <div class="kpi-badge badge-green">New vs expiring</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Avg Days to Lease</div>
+        <div class="kpi-value">18 days</div>
+        <div class="kpi-badge badge-yellow">Benchmark ≤ 15</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Renewal Rate</div>
+        <div class="kpi-value">68%</div>
+        <div class="kpi-badge badge-yellow">Target ≥ 70%</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Avg Effective Rent</div>
+        <div class="kpi-value">$1,500</div>
+        <div class="kpi-badge badge-blue">/unit/month</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Avg Market Rent</div>
+        <div class="kpi-value">$1,545</div>
+        <div class="kpi-badge badge-blue">3% below market</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Concessions</div>
+        <div class="kpi-value">$72K/yr</div>
+        <div class="kpi-badge badge-green">2% of GPR</div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-bottom:20px">
+      <div class="section-title">Unit Mix &amp; Rent Roll Summary</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Type</th><th>Units</th><th>% of Total</th><th>Avg SF</th><th>Avg Rent</th><th>Rent/SF</th><th>Monthly Rev</th><th>Annual Rev</th><th>Occupancy</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Studio (0BR)</td><td>20</td><td>10%</td><td>480</td><td>$1,100</td><td>$2.29</td><td>$22,000</td><td>$264,000</td><td>90%</td></tr>
+          <tr><td>1 Bedroom</td><td>100</td><td>50%</td><td>720</td><td>$1,450</td><td>$2.01</td><td>$145,000</td><td>$1,740,000</td><td>93%</td></tr>
+          <tr><td>2 Bedroom</td><td>65</td><td>32.5%</td><td>1,020</td><td>$1,850</td><td>$1.81</td><td>$120,250</td><td>$1,443,000</td><td>92%</td></tr>
+          <tr><td>3 Bedroom</td><td>15</td><td>7.5%</td><td>1,280</td><td>$2,200</td><td>$1.72</td><td>$33,000</td><td>$396,000</td><td>87%</td></tr>
+          <tr><td><strong>Total / Avg</strong></td><td><strong>200</strong></td><td><strong>100%</strong></td><td><strong>830</strong></td><td><strong>$1,500</strong></td><td><strong>$1.81</strong></td><td><strong>$320,250</strong></td><td><strong>$3,843,000</strong></td><td><strong>92%</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two-col">
+      <div class="panel-box">
+        <div class="section-title">Lease Expiration Schedule</div>
+        <table class="data-table">
+          <thead><tr><th>Month</th><th>Expirations</th><th>% of Total</th></tr></thead>
+          <tbody>
+            <tr><td>Month 1–3</td><td>28</td><td>14%</td></tr>
+            <tr><td>Month 4–6</td><td>52</td><td>26%</td></tr>
+            <tr><td>Month 7–9</td><td>61</td><td>30.5%</td></tr>
+            <tr><td>Month 10–12</td><td>43</td><td>21.5%</td></tr>
+            <tr><td>MTM / Other</td><td>16</td><td>8%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-box">
+        <div class="section-title">Trade-out Analysis</div>
+        <div class="stat-row"><span class="stat-label">Avg Expiring Rent</span><span class="stat-val">$1,458</span></div>
+        <div class="stat-row"><span class="stat-label">Avg New Lease Rent</span><span class="stat-val">$1,499</span></div>
+        <div class="stat-row"><span class="stat-label">New Lease Trade-out</span><span class="stat-val" style="color:var(--green)">+2.8%</span></div>
+        <div class="stat-row"><span class="stat-label">Avg Renewal Rent</span><span class="stat-val">$1,487</span></div>
+        <div class="stat-row"><span class="stat-label">Renewal Trade-out</span><span class="stat-val" style="color:var(--green)">+2.0%</span></div>
+        <div class="stat-row"><span class="stat-label">Blended Trade-out</span><span class="stat-val" style="color:var(--green)">+2.3%</span></div>
+        <div class="stat-row"><span class="stat-label">Market Rent Premium</span><span class="stat-val" style="color:var(--accent)">3% above in-place</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 4: Unit Economics ── -->
+  <div class="tab-panel" id="tab-units">
+    <div class="page-title">Unit Economics</div>
+    <div class="page-sub">Renovation Program Analysis · Kingswood Cove</div>
+    <div class="kpi-grid">
+      <div class="kpi-card good">
+        <div class="kpi-label">Renovation ROI</div>
+        <div class="kpi-value">32%</div>
+        <div class="kpi-badge badge-green">Above 25% hurdle</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Rent Premium (Reno)</div>
+        <div class="kpi-value">$175/mo</div>
+        <div class="kpi-badge badge-green">vs. unrenovated</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Payback Period</div>
+        <div class="kpi-value">22 months</div>
+        <div class="kpi-badge badge-green">Target ≤ 24 mo</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Avg Reno Cost/Unit</div>
+        <div class="kpi-value">$8,500</div>
+        <div class="kpi-badge badge-blue">Interior scope</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Units Renovated</div>
+        <div class="kpi-value">60 units</div>
+        <div class="kpi-badge badge-yellow">30% of total</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Unrenovated Upside</div>
+        <div class="kpi-value">$294K/yr</div>
+        <div class="kpi-badge badge-green">140 units × $175</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Total Reno CapEx</div>
+        <div class="kpi-value">$1.19M</div>
+        <div class="kpi-badge badge-blue">140 units remaining</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="panel-box">
+        <div class="section-title">Renovation Scope Summary</div>
+        <div class="stat-row"><span class="stat-label">Interior Renovation Cost</span><span class="stat-val">$6,500/unit</span></div>
+        <div class="stat-row"><span class="stat-label">Appliance Package</span><span class="stat-val">$1,200/unit</span></div>
+        <div class="stat-row"><span class="stat-label">Flooring / Finishes</span><span class="stat-val">$800/unit</span></div>
+        <div class="stat-row"><span class="stat-label">Total Avg Cost</span><span class="stat-val"><strong>$8,500/unit</strong></span></div>
+        <div class="stat-row"><span class="stat-label">Monthly Rent Premium</span><span class="stat-val">$175/unit</span></div>
+        <div class="stat-row"><span class="stat-label">Annual Rent Premium</span><span class="stat-val">$2,100/unit</span></div>
+        <div class="stat-row"><span class="stat-label">Unlevered Yield on Cost</span><span class="stat-val" style="color:var(--green)">24.7%</span></div>
+        <div class="stat-row"><span class="stat-label">Payback Period</span><span class="stat-val">22 months</span></div>
+      </div>
+      <div class="panel-box">
+        <div class="section-title">Value-Add Upside Model</div>
+        <div class="stat-row"><span class="stat-label">Unrenovated Units</span><span class="stat-val">140</span></div>
+        <div class="stat-row"><span class="stat-label">CapEx Required</span><span class="stat-val">$1,190,000</span></div>
+        <div class="stat-row"><span class="stat-label">Incremental NOI (stabilized)</span><span class="stat-val" style="color:var(--green)">+$294,000/yr</span></div>
+        <div class="stat-row"><span class="stat-label">Value Created (6.2% exit cap)</span><span class="stat-val" style="color:var(--green)">+$4,742,000</span></div>
+        <div class="stat-row"><span class="stat-label">Net Value-Add (after CapEx)</span><span class="stat-val" style="color:var(--green)">+$3,552,000</span></div>
+        <div class="stat-row"><span class="stat-label">Return on CapEx</span><span class="stat-val" style="color:var(--green)">298%</span></div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="section-title">Comparable Rent Survey</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Property</th><th>Units</th><th>Year Built</th><th>Dist.</th><th>Avg Rent</th><th>Occ.</th><th>Amenities</th><th>vs. Kingswood</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Kingswood Cove</strong></td><td>200</td><td>1998</td><td>—</td><td>$1,500</td><td>92%</td><td>Pool, Gym</td><td>—</td></tr>
+          <tr><td>Riverside Flats</td><td>240</td><td>2005</td><td>0.4 mi</td><td>$1,625</td><td>95%</td><td>Pool, Gym, Dog park</td><td style="color:var(--red)">+$125</td></tr>
+          <tr><td>Cedar Creek Apt.</td><td>180</td><td>1995</td><td>0.8 mi</td><td>$1,420</td><td>89%</td><td>Pool</td><td style="color:var(--green)">−$80</td></tr>
+          <tr><td>Summit Ridge</td><td>312</td><td>2012</td><td>1.2 mi</td><td>$1,780</td><td>96%</td><td>Pool, Gym, Cowork</td><td style="color:var(--red)">+$280</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── TAB 5: Credit & Debt Service ── -->
+  <div class="tab-panel" id="tab-credit">
+    <div class="page-title">Credit &amp; Debt Service</div>
+    <div class="page-sub">Loan Analysis · $18,200,000 · 6.25% · 30-Year AM</div>
+    <div class="kpi-grid">
+      <div class="kpi-card good">
+        <div class="kpi-label">DSCR</div>
+        <div class="kpi-value">1.28×</div>
+        <div class="kpi-badge badge-green">Min lender 1.20×</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Interest Coverage (ICR)</div>
+        <div class="kpi-value">1.35×</div>
+        <div class="kpi-badge badge-green">NOI / Interest</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Debt Constant</div>
+        <div class="kpi-value">7.39%</div>
+        <div class="kpi-badge badge-green">Ann. DS / Loan bal.</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Break-Even Occupancy</div>
+        <div class="kpi-value">72%</div>
+        <div class="kpi-badge badge-green">28% cushion vs 92%</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Annual Debt Service</div>
+        <div class="kpi-value">$1,137,800</div>
+        <div class="kpi-badge badge-blue">P&amp;I combined</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Monthly P&amp;I</div>
+        <div class="kpi-value">$94,817</div>
+        <div class="kpi-badge badge-blue">Fixed rate</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Debt Yield</div>
+        <div class="kpi-value">8.0%</div>
+        <div class="kpi-badge badge-yellow">NOI / Loan balance</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="panel-box">
+        <div class="section-title">Loan Terms Summary</div>
+        <div class="stat-row"><span class="stat-label">Loan Amount</span><span class="stat-val">$18,200,000</span></div>
+        <div class="stat-row"><span class="stat-label">Interest Rate</span><span class="stat-val">6.25% Fixed</span></div>
+        <div class="stat-row"><span class="stat-label">Amortization</span><span class="stat-val">30 Years</span></div>
+        <div class="stat-row"><span class="stat-label">Loan Term</span><span class="stat-val">10 Years</span></div>
+        <div class="stat-row"><span class="stat-label">IO Period</span><span class="stat-val">None (Full AM)</span></div>
+        <div class="stat-row"><span class="stat-label">Prepayment</span><span class="stat-val">Yield Maintenance</span></div>
+        <div class="stat-row"><span class="stat-label">LTV at Close</span><span class="stat-val">65%</span></div>
+        <div class="stat-row"><span class="stat-label">Recourse</span><span class="stat-val">Non-recourse + Carve-outs</span></div>
+      </div>
+      <div class="panel-box">
+        <div class="section-title">5-Year Loan Balance Schedule</div>
+        <table class="data-table">
+          <thead><tr><th>Year</th><th>Beg. Balance</th><th>Interest</th><th>Principal</th><th>End. Balance</th></tr></thead>
+          <tbody>
+            <tr><td>Y1</td><td>$18,200,000</td><td>$1,077,800</td><td>$60,000</td><td>$18,140,000</td></tr>
+            <tr><td>Y2</td><td>$18,140,000</td><td>$1,074,400</td><td>$63,400</td><td>$18,076,600</td></tr>
+            <tr><td>Y3</td><td>$18,076,600</td><td>$1,070,800</td><td>$67,000</td><td>$18,009,600</td></tr>
+            <tr><td>Y4</td><td>$18,009,600</td><td>$1,066,600</td><td>$71,200</td><td>$17,938,400</td></tr>
+            <tr><td>Y5</td><td>$17,938,400</td><td>$1,062,100</td><td>$75,700</td><td>$17,862,700</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 6: Valuation & Exit ── -->
+  <div class="tab-panel" id="tab-valuation">
+    <div class="page-title">Valuation &amp; Exit</div>
+    <div class="page-sub">Cap Rate Analysis &amp; Exit Sensitivity · Kingswood Cove</div>
+    <div class="kpi-grid">
+      <div class="kpi-card caution">
+        <div class="kpi-label">Going-in Cap Rate</div>
+        <div class="kpi-value">5.5%</div>
+        <div class="kpi-badge badge-yellow">NOI / Purchase price</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Exit Cap Rate</div>
+        <div class="kpi-value">6.2%</div>
+        <div class="kpi-badge badge-yellow">+70bps expansion</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Current Value (5.5%)</div>
+        <div class="kpi-value">$26.5M</div>
+        <div class="kpi-badge badge-blue">NOI / 5.5%</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Exit Value (6.2%)</div>
+        <div class="kpi-value">$25.4M</div>
+        <div class="kpi-badge badge-yellow">Yr5 NOI / 6.2%</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Value Per Unit</div>
+        <div class="kpi-value">$140,000</div>
+        <div class="kpi-badge badge-blue">Purchase / 200 units</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Exit Value Per Unit</div>
+        <div class="kpi-value">$127,000</div>
+        <div class="kpi-badge badge-blue">Exit / 200 units</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Equity at Exit</div>
+        <div class="kpi-value">~$7.5M</div>
+        <div class="kpi-badge badge-green">After loan payoff</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Gross Profit</div>
+        <div class="kpi-value">~$8.1M</div>
+        <div class="kpi-badge badge-green">Exit eq + cash flow</div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-bottom:20px">
+      <div class="section-title">Exit Value Sensitivity (Yr5 NOI × Cap Rate)</div>
+      <table class="data-table sens-table">
+        <thead>
+          <tr>
+            <th>Cap Rate ↓ / NOI Growth →</th>
+            <th>0% Growth</th>
+            <th>1% Growth</th>
+            <th>2% Growth</th>
+            <th>3% Growth</th>
+            <th>4% Growth</th>
+          </tr>
+        </thead>
+        <tbody id="sens-body"></tbody>
+      </table>
+    </div>
+
+    <div class="two-col">
+      <div class="panel-box">
+        <div class="section-title">Return Summary at Exit</div>
+        <div class="stat-row"><span class="stat-label">Equity Invested (Day 1)</span><span class="stat-val">$9,800,000</span></div>
+        <div class="stat-row"><span class="stat-label">5yr Cumulative NCF</span><span class="stat-val">$1,888,082</span></div>
+        <div class="stat-row"><span class="stat-label">Exit Value (Yr5, 6.2%)</span><span class="stat-val">$25,419,694</span></div>
+        <div class="stat-row"><span class="stat-label">Loan Payoff at Exit</span><span class="stat-val">$17,862,700</span></div>
+        <div class="stat-row"><span class="stat-label">Net Equity at Exit</span><span class="stat-val">$7,556,994</span></div>
+        <div class="stat-row"><span class="stat-label">Total Profit</span><span class="stat-val" style="color:var(--green)">$9,445,076</span></div>
+        <div class="stat-row"><span class="stat-label">MOIC</span><span class="stat-val" style="color:var(--green)">1.96×</span></div>
+        <div class="stat-row"><span class="stat-label">IRR</span><span class="stat-val" style="color:var(--green)">16.2%</span></div>
+      </div>
+      <div class="panel-box">
+        <div class="section-title">Cap Rate Comps</div>
+        <div class="stat-row"><span class="stat-label">Market Going-in Cap</span><span class="stat-val">5.0–5.5%</span></div>
+        <div class="stat-row"><span class="stat-label">Kingswood Going-in</span><span class="stat-val" style="color:var(--accent)">5.5%</span></div>
+        <div class="stat-row"><span class="stat-label">Underwritten Exit Cap</span><span class="stat-val" style="color:var(--yellow)">6.2%</span></div>
+        <div class="stat-row"><span class="stat-label">Cap Rate Expansion</span><span class="stat-val">+70 bps</span></div>
+        <div class="stat-row"><span class="stat-label">Historical 5yr expansion (Austin)</span><span class="stat-val">+60–80 bps</span></div>
+        <div class="stat-row"><span class="stat-label">Conservative case exit cap</span><span class="stat-val">7.0%</span></div>
+        <div class="stat-row"><span class="stat-label">Conservative exit value</span><span class="stat-val">$22,514,586</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 7: Market & Portfolio ── -->
+  <div class="tab-panel" id="tab-market">
+    <div class="page-title">Market &amp; Portfolio</div>
+    <div class="page-sub">Austin-Round Rock MSA · Competitive Set Analysis</div>
+    <div class="kpi-grid">
+      <div class="kpi-card good">
+        <div class="kpi-label">MSA Population Growth</div>
+        <div class="kpi-value">2.1%/yr</div>
+        <div class="kpi-badge badge-green">Top 10 US MSA</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Job Growth YoY</div>
+        <div class="kpi-value">3.4%</div>
+        <div class="kpi-badge badge-green">vs. 1.2% national</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Rent Growth YoY</div>
+        <div class="kpi-value">4.2%</div>
+        <div class="kpi-badge badge-green">Austin submarket</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Market Vacancy Rate</div>
+        <div class="kpi-value">5.8%</div>
+        <div class="kpi-badge badge-green">vs. 7.5% national</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Median HH Income</div>
+        <div class="kpi-value">$82,400</div>
+        <div class="kpi-badge badge-blue">Submarket</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">New Supply Pipeline</div>
+        <div class="kpi-value">3,200 units</div>
+        <div class="kpi-badge badge-yellow">12-month delivery</div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-bottom:20px">
+      <div class="section-title">Competitive Set Comparison</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Property</th><th>Units</th><th>Year Built</th><th>Distance</th><th>Avg Rent</th><th>Occ %</th><th>$/Unit Value</th><th>Amenity Rating</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Kingswood Cove</strong></td><td>200</td><td>1998</td><td>—</td><td>$1,500</td><td>92%</td><td>$140,000</td><td>⭐⭐⭐</td></tr>
+          <tr><td>Riverside Flats</td><td>240</td><td>2005</td><td>0.4 mi</td><td>$1,625</td><td>95%</td><td>$165,000</td><td>⭐⭐⭐⭐</td></tr>
+          <tr><td>Cedar Creek</td><td>180</td><td>1995</td><td>0.8 mi</td><td>$1,420</td><td>89%</td><td>$128,000</td><td>⭐⭐⭐</td></tr>
+          <tr><td>Summit Ridge</td><td>312</td><td>2012</td><td>1.2 mi</td><td>$1,780</td><td>96%</td><td>$195,000</td><td>⭐⭐⭐⭐⭐</td></tr>
+          <tr><td>Lakewood Pines</td><td>156</td><td>2001</td><td>1.8 mi</td><td>$1,540</td><td>91%</td><td>$148,000</td><td>⭐⭐⭐</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two-col">
+      <div class="panel-box">
+        <div class="section-title">MSA Demand Drivers</div>
+        <div class="stat-row"><span class="stat-label">Major Employers</span><span class="stat-val">Tesla, Dell, Apple, Samsung</span></div>
+        <div class="stat-row"><span class="stat-label">University System</span><span class="stat-val">UT Austin (50K+ enrollment)</span></div>
+        <div class="stat-row"><span class="stat-label">Net In-Migration</span><span class="stat-val">+38,000 residents/yr</span></div>
+        <div class="stat-row"><span class="stat-label">Millennial % Pop.</span><span class="stat-val">28%</span></div>
+        <div class="stat-row"><span class="stat-label">Renter Household %</span><span class="stat-val">43%</span></div>
+        <div class="stat-row"><span class="stat-label">Avg HH Size</span><span class="stat-val">2.4 persons</span></div>
+        <div class="stat-row"><span class="stat-label">Rent-to-Income Ratio</span><span class="stat-val">27% (healthy)</span></div>
+      </div>
+      <div class="panel-box">
+        <div class="section-title">Portfolio Context</div>
+        <div class="stat-row"><span class="stat-label">Asset Class</span><span class="stat-val">Class B Multifamily</span></div>
+        <div class="stat-row"><span class="stat-label">Strategy</span><span class="stat-val">Value-Add</span></div>
+        <div class="stat-row"><span class="stat-label">Target Hold</span><span class="stat-val">5 Years</span></div>
+        <div class="stat-row"><span class="stat-label">Fund Allocation</span><span class="stat-val">~8% of Fund III</span></div>
+        <div class="stat-row"><span class="stat-label">Similar Holdings</span><span class="stat-val">3 Austin-area assets</span></div>
+        <div class="stat-row"><span class="stat-label">Portfolio NOI Contribution</span><span class="stat-val">TBD post-close</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 8: ESG & Risk ── -->
+  <div class="tab-panel" id="tab-esg">
+    <div class="page-title">ESG &amp; Risk</div>
+    <div class="page-sub">Environmental, Social, Governance · Risk Assessment · Kingswood Cove</div>
+    <div class="kpi-grid">
+      <div class="kpi-card caution">
+        <div class="kpi-label">Utility Cost / Unit / Mo</div>
+        <div class="kpi-value">$45</div>
+        <div class="kpi-badge badge-yellow">Common area only</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Water Cost / Unit / Mo</div>
+        <div class="kpi-value">$12</div>
+        <div class="kpi-badge badge-yellow">Submetered</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Energy Star Score</div>
+        <div class="kpi-value">N/A</div>
+        <div class="kpi-badge badge-blue">Not yet assessed</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Reserve Balance</div>
+        <div class="kpi-value">$144,000</div>
+        <div class="kpi-badge badge-green">$720/unit</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Recommended Reserve</div>
+        <div class="kpi-value">$1,000/unit</div>
+        <div class="kpi-badge badge-yellow">$200K shortfall</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">PCA Status</div>
+        <div class="kpi-value">Phase I ✓</div>
+        <div class="kpi-badge badge-green">No RECs found</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-label">Phase II Assessment</div>
+        <div class="kpi-value">Not Required</div>
+        <div class="kpi-badge badge-green">Clean Phase I</div>
+      </div>
+      <div class="kpi-card caution">
+        <div class="kpi-label">Roof Condition</div>
+        <div class="kpi-value">Fair</div>
+        <div class="kpi-badge badge-yellow">5–7yr remaining life</div>
+      </div>
+    </div>
+
+    <div class="three-col">
+      <div class="panel-box">
+        <div class="section-title">Key Risk Factors</div>
+        <table class="data-table">
+          <thead><tr><th>Risk</th><th>Probability</th><th>Impact</th></tr></thead>
+          <tbody>
+            <tr><td>Interest Rate Rise</td><td style="color:var(--yellow)">Medium</td><td style="color:var(--yellow)">Medium</td></tr>
+            <tr><td>Occupancy Decline</td><td style="color:var(--green)">Low</td><td style="color:var(--red)">High</td></tr>
+            <tr><td>Expense Inflation</td><td style="color:var(--yellow)">Medium</td><td style="color:var(--yellow)">Medium</td></tr>
+            <tr><td>Capex Overrun</td><td style="color:var(--yellow)">Medium</td><td style="color:var(--yellow)">Medium</td></tr>
+            <tr><td>Market Rent Decline</td><td style="color:var(--green)">Low</td><td style="color:var(--red)">High</td></tr>
+            <tr><td>Deferred Maintenance</td><td style="color:var(--red)">High</td><td style="color:var(--yellow)">Medium</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-box">
+        <div class="section-title">ESG Initiatives</div>
+        <div class="stat-row"><span class="stat-label">LED Conversion</span><span class="stat-val" style="color:var(--yellow)">Planned Y1</span></div>
+        <div class="stat-row"><span class="stat-label">HVAC Upgrades</span><span class="stat-val" style="color:var(--yellow)">Planned Y2</span></div>
+        <div class="stat-row"><span class="stat-label">Water Submetering</span><span class="stat-val" style="color:var(--green)">In Place</span></div>
+        <div class="stat-row"><span class="stat-label">Recycling Program</span><span class="stat-val" style="color:var(--green)">Active</span></div>
+        <div class="stat-row"><span class="stat-label">EV Charging Stations</span><span class="stat-val" style="color:var(--yellow)">Planned Y2</span></div>
+        <div class="stat-row"><span class="stat-label">Solar Feasibility</span><span class="stat-val" style="color:var(--muted)">Under Review</span></div>
+        <div class="stat-row"><span class="stat-label">LEED Cert. Target</span><span class="stat-val" style="color:var(--muted)">Not planned</span></div>
+      </div>
+      <div class="panel-box">
+        <div class="section-title">Physical Due Diligence</div>
+        <div class="stat-row"><span class="stat-label">Year Built</span><span class="stat-val">1998 (28 yrs old)</span></div>
+        <div class="stat-row"><span class="stat-label">Roof</span><span class="stat-val" style="color:var(--yellow)">Fair — $320K reserve</span></div>
+        <div class="stat-row"><span class="stat-label">HVAC Systems</span><span class="stat-val" style="color:var(--yellow)">Aging — 10–12yr</span></div>
+        <div class="stat-row"><span class="stat-label">Plumbing</span><span class="stat-val" style="color:var(--green)">Good condition</span></div>
+        <div class="stat-row"><span class="stat-label">Electrical</span><span class="stat-val" style="color:var(--green)">Updated 2018</span></div>
+        <div class="stat-row"><span class="stat-label">Parking (spaces)</span><span class="stat-val">340 (1.7× ratio)</span></div>
+        <div class="stat-row"><span class="stat-label">Immediate Repairs</span><span class="stat-val" style="color:var(--yellow)">~$85,000</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 9: AI Recommendation ── -->
+  <div class="tab-panel" id="tab-ai">
+    <div class="page-title">AI Recommendation</div>
+    <div class="page-sub">Pre-loaded with OM data · Gap Alerts · QA Checklist · DD Tracker</div>
+
+    <div class="three-col">
+      <div class="panel-box" style="border-left: 3px solid var(--red)">
+        <div class="section-title" style="color:var(--red)">⚠ Data Gap Alerts</div>
+        <div class="checklist">
+          <div class="check-item"><div class="ck ck-pend">✗</div>T12 trailing actuals not provided</div>
+          <div class="check-item"><div class="ck ck-pend">✗</div>Detailed rent roll file missing</div>
+          <div class="check-item"><div class="ck ck-pend">✗</div>PCA / Property Condition Report</div>
+          <div class="check-item"><div class="ck ck-pend">✗</div>Loan term sheet not confirmed</div>
+          <div class="check-item"><div class="ck ck-pend">✗</div>Historical capex schedule absent</div>
+          <div class="check-item"><div class="ck ck-pend">✗</div>Third-party appraisal not ordered</div>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="section-title">✅ QA Checklist</div>
+        <div class="checklist">
+          <div class="check-item"><div class="ck ck-done">✓</div>Purchase price verified</div>
+          <div class="check-item"><div class="ck ck-done">✓</div>NOI &amp; cap rate confirmed</div>
+          <div class="check-item"><div class="ck ck-done">✓</div>Occupancy data reviewed</div>
+          <div class="check-item"><div class="ck ck-done">✓</div>Unit mix validated</div>
+          <div class="check-item"><div class="ck ck-done">✓</div>DSCR above 1.20× threshold</div>
+          <div class="check-item"><div class="ck ck-done">✓</div>IRR above 15% hurdle rate</div>
+          <div class="check-item"><div class="ck ck-done">✓</div>LTV ≤ 70% policy limit</div>
+          <div class="check-item"><div class="ck ck-pend">✗</div>Title search completed</div>
+          <div class="check-item"><div class="ck ck-pend">✗</div>Environmental clear (Phase II)</div>
+          <div class="check-item"><div class="ck ck-pend">✗</div>Legal / entity structure confirmed</div>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="section-title">🎯 Priority Action Items</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.2);border-radius:6px;padding:10px 12px;">
+            <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px;">HIGH PRIORITY</div>
+            <div style="font-size:13px;">Request T12 actuals &amp; in-place rent roll from broker before proceeding to PSA.</div>
+          </div>
+          <div style="background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.2);border-radius:6px;padding:10px 12px;">
+            <div style="font-size:11px;font-weight:700;color:var(--yellow);margin-bottom:4px;">MEDIUM PRIORITY</div>
+            <div style="font-size:13px;">Engage PCA firm and schedule site visit within 10 days of PSA execution.</div>
+          </div>
+          <div style="background:rgba(63,185,80,.08);border:1px solid rgba(63,185,80,.2);border-radius:6px;padding:10px 12px;">
+            <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px;">NORMAL PRIORITY</div>
+            <div style="font-size:13px;">Submit preliminary loan app to agency lender; lock rate once T12 confirmed.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:16px">
+      <div class="panel-box">
+        <div class="section-title">📅 DD Milestone Tracker</div>
+        <div class="dd-track">
+          <div class="dd-step"><div class="dd-dot dd-done"></div><div class="dd-label">LOI Signed</div><div class="dd-date">Apr 2, 2026</div></div>
+          <div class="dd-step"><div class="dd-dot dd-act"></div><div class="dd-label">PSA Execution <span style="color:var(--accent)">(in progress)</span></div><div class="dd-date">Target: Apr 14</div></div>
+          <div class="dd-step"><div class="dd-dot dd-pend"></div><div class="dd-label">Physical / PCA Due Diligence</div><div class="dd-date">45 days from PSA</div></div>
+          <div class="dd-step"><div class="dd-dot dd-pend"></div><div class="dd-label">Financing / Appraisal</div><div class="dd-date">30 days from PSA</div></div>
+          <div class="dd-step"><div class="dd-dot dd-pend"></div><div class="dd-label">Legal &amp; Title Review</div><div class="dd-date">20 days from PSA</div></div>
+          <div class="dd-step"><div class="dd-dot dd-pend"></div><div class="dd-label">IC Approval</div><div class="dd-date">30 days from PSA</div></div>
+          <div class="dd-step"><div class="dd-dot dd-pend"></div><div class="dd-label">Scheduled Close</div><div class="dd-date">60 days from PSA</div></div>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="section-title">🤖 Generate IC Memo</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">Click below to generate a full Investment Committee Memo for Kingswood Cove using all loaded OM data. Output will include executive summary, deal thesis, financial analysis, risk factors, and recommendation.</p>
+        <button class="btn btn-purple" onclick="generateMemo()" style="width:100%;justify-content:center;font-size:14px;padding:12px">
+          🤖 Generate Full IC Memo
+        </button>
+        <div id="memo-output"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ ANALYST CALC ZONE ═══════════════════ -->
+  <div class="calc-zone">
+    <div class="calc-zone-title"><span>🧮</span> Analyst Calc Zone — Live Scenario Modeler</div>
+    <div class="calc-zone-sub">Adjust sliders to model scenarios in real time. All outputs recalculate instantly.</div>
+
+    <div class="sliders-grid">
+      <div class="slider-group">
+        <label>Purchase Price <span id="lbl-price">$28,000,000</span></label>
+        <input type="range" id="sl-price" min="20000000" max="40000000" step="100000" value="28000000" oninput="recalc()">
+      </div>
+      <div class="slider-group">
+        <label>Going-in Cap Rate <span id="lbl-cap">5.50%</span></label>
+        <input type="range" id="sl-cap" min="4.0" max="8.0" step="0.05" value="5.5" oninput="recalc()">
+      </div>
+      <div class="slider-group">
+        <label>LTV <span id="lbl-ltv">65%</span></label>
+        <input type="range" id="sl-ltv" min="50" max="80" step="1" value="65" oninput="recalc()">
+      </div>
+      <div class="slider-group">
+        <label>Interest Rate <span id="lbl-rate">6.25%</span></label>
+        <input type="range" id="sl-rate" min="4.0" max="9.0" step="0.05" value="6.25" oninput="recalc()">
+      </div>
+      <div class="slider-group">
+        <label>Occupancy <span id="lbl-occ">92%</span></label>
+        <input type="range" id="sl-occ" min="75" max="100" step="0.5" value="92" oninput="recalc()">
+      </div>
+      <div class="slider-group">
+        <label>NOI Growth (ann.) <span id="lbl-nog">2.00%</span></label>
+        <input type="range" id="sl-nog" min="0" max="5" step="0.1" value="2.0" oninput="recalc()">
+      </div>
+    </div>
+
+    <div class="calc-outputs">
+      <div class="calc-output"><div class="calc-output-label">DSCR</div><div class="calc-output-val" id="out-dscr">1.28×</div></div>
+      <div class="calc-output"><div class="calc-output-label">IRR</div><div class="calc-output-val" id="out-irr">16.2%</div></div>
+      <div class="calc-output"><div class="calc-output-label">Exit Value (Yr5)</div><div class="calc-output-val" id="out-exit">$25.4M</div></div>
+      <div class="calc-output"><div class="calc-output-label">Going-in Cap</div><div class="calc-output-val" id="out-gicap">5.50%</div></div>
+      <div class="calc-output"><div class="calc-output-label">Equity Req.</div><div class="calc-output-val" id="out-eq">$9.8M</div></div>
+      <div class="calc-output"><div class="calc-output-label">CoC Y1</div><div class="calc-output-val" id="out-coc">5.8%</div></div>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="saveScenario()">💾 Save Scenario</button>
+      <button class="btn btn-secondary" onclick="clearScenarios()">🗑 Clear All</button>
+      <span style="font-size:12px;color:var(--muted)" id="scenario-count"></span>
+    </div>
+
+    <div id="scenario-table-wrap" style="display:none">
+      <h4>Saved Scenarios</h4>
+      <div class="table-wrap">
+        <table class="data-table" id="scenario-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Price</th><th>Cap</th><th>LTV</th><th>Rate</th><th>Occ</th><th>NOI Grw</th>
+              <th>DSCR</th><th>IRR</th><th>Exit Val</th><th>CoC Y1</th><th>Equity</th>
+            </tr>
+          </thead>
+          <tbody id="scenario-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ ASK DOCUMENT CHAT ═══════════════════ -->
+  <div class="chat-zone">
+    <div class="chat-title">💬 Ask Document Chat</div>
+    <div class="chat-sub">Powered by Anthropic Claude — full Kingswood Cove OM context loaded</div>
+
+    <div class="api-key-note" id="api-key-note">
+      ⚠️ <strong>API Key Required:</strong> To enable AI chat, open this file and set <code>ANTHROPIC_API_KEY = 'your-key-here'</code> in the script. Currently showing demo mode.
+    </div>
+
+    <div class="quick-btns">
+      <button class="quick-btn" onclick="askQuestion(&quot;What is the DSCR and is it acceptable?&quot;)">What's the DSCR?</button>
+      <button class="quick-btn" onclick="askQuestion(&quot;Summarize this deal in 3 bullet points&quot;)">Summarize the deal</button>
+      <button class="quick-btn" onclick="askQuestion(&quot;What are the top 3 risks for this investment?&quot;)">What are the risks?</button>
+      <button class="quick-btn" onclick="askQuestion(&quot;What is the exit strategy and projected return?&quot;)">Exit strategy</button>
+      <button class="quick-btn" onclick="askQuestion(&quot;How does Kingswood Cove compare to its competitors in the market?&quot;)">Compare to comps</button>
+      <button class="quick-btn" onclick="askQuestion(&quot;What data is missing and what should I request from the broker?&quot;)">Missing data?</button>
+    </div>
+
+    <div class="chat-history" id="chat-history">
+      <div class="chat-msg">
+        <div class="chat-msg-role assistant">Assistant</div>
+        <div class="chat-msg-text">Hello! I'm loaded with the full Kingswood Cove offering memorandum data. Ask me anything about this deal — returns, occupancy, debt service, exit strategy, risk factors, or market comps. I can also help you draft IC memo sections or identify missing diligence items.</div>
+      </div>
+    </div>
+
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Ask anything about Kingswood Cove..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="btn btn-primary" onclick="sendChat()">Send ➤</button>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// CONFIG — Set your Anthropic API key here
+// ══════════════════════════════════════════════════
+var ANTHROPIC_API_KEY = ''; // e.g. 'sk-ant-...'
+
+var OM_CONTEXT = `
+KINGSWOOD COVE — FULL OFFERING MEMORANDUM CONTEXT
+
+PROPERTY OVERVIEW
+- Name: Kingswood Cove Apartments
+- Location: Austin-Round Rock MSA, Texas
+- Units: 200 multifamily units (stabilized Class B value-add)
+- Year Built: 1998 (28 years old)
+- Purchase Price: $28,000,000
+- Price Per Unit: $140,000
+
+UNIT MIX
+- Studios (0BR): 20 units @ $1,100/mo avg
+- 1 Bedroom: 100 units @ $1,450/mo avg
+- 2 Bedroom: 65 units @ $1,850/mo avg
+- 3 Bedroom: 15 units @ $2,200/mo avg
+- Total: 200 units, Avg Rent $1,500/unit/mo
+
+FINANCIAL SUMMARY
+- Gross Potential Rent (GPR): $3,600,000/yr
+- Vacancy & Concessions: $360,000 (10%)
+- Other Income: $108,000
+- Effective Gross Income (EGI): $3,240,000
+- Total Operating Expenses: $1,784,000 (OER 55%)
+- Net Operating Income (NOI): $1,456,000
+- NOI/Unit: $7,280
+- Going-in Cap Rate: 5.5%
+- Exit Cap Rate (underwritten): 6.2%
+
+DEBT/FINANCING
+- Loan Amount: $18,200,000 (65% LTV)
+- Interest Rate: 6.25% fixed
+- Amortization: 30 years
+- Annual Debt Service: $1,137,800
+- Monthly P&I: $94,817
+- DSCR: 1.28x (NOI / Annual DS)
+- Debt Yield: 8.0% (NOI / Loan)
+- Break-even Occupancy: 72%
+
+INVESTMENT RETURNS (5-year hold)
+- Equity Invested: $9,800,000 (35%)
+- Projected IRR (levered): 16.2%
+- Equity Multiple (MOIC): 1.85x
+- Cash-on-Cash Y1: 5.8%
+- LTV: 65%, LTC: 67%
+
+OCCUPANCY & LEASING
+- Physical Occupancy: 92% (184/200 units)
+- Economic Occupancy: 90%
+- Leased %: 94%
+- Avg Days to Lease: 18 days
+- Renewal Rate: 68%
+- Trade-out YoY: +2.8%
+
+VALUE-ADD / RENOVATION PROGRAM
+- 60 of 200 units already renovated (30%)
+- Avg renovation cost: $8,500/unit
+- Rent premium post-renovation: $175/unit/mo
+- Renovation ROI: 32%, Payback: 22 months
+- Remaining unrenovated: 140 units
+- Incremental NOI potential: +$294,000/yr
+
+MARKET — AUSTIN-ROUND ROCK MSA
+- Population growth: 2.1%/yr
+- Job growth: 3.4% YoY
+- Market rent growth: 4.2% YoY
+- Market vacancy: 5.8%
+- Major employers: Tesla, Dell, Apple, Samsung, UT Austin
+- 12mo supply pipeline: 3,200 units
+
+PHYSICAL / ESG
+- Phase I: Complete — No RECs
+- Phase II: Not required
+- Reserve balance: $144,000 ($720/unit)
+- Recommended reserves: $1,000/unit
+- Roof: Fair condition, 5-7yr life
+- HVAC: Aging (10-12 yr old systems)
+- Electricity: Updated 2018
+
+MISSING DATA (GAPS)
+- T12 trailing financial actuals not provided
+- Detailed in-place rent roll not provided
+- PCA / property condition report not yet ordered
+- Loan term sheet not confirmed
+- Historical capex schedule absent
+- Third-party appraisal not ordered
+
+DATA COMPLETENESS: 62%
+`;
+
+// ══════════════════════════════════════════════════
+// Tab Switching
+// ══════════════════════════════════════════════════
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════
+// Exit Sensitivity Table
+// ══════════════════════════════════════════════════
+(function buildSens() {
+  var capRates = [5.0, 5.5, 6.0, 6.2, 6.5, 7.0];
+  var noigrowths = [0, 1, 2, 3, 4];
+  var baseNOI = 1456000;
+  var tbody = document.getElementById('sens-body');
+  capRates.forEach(function(cr) {
+    var tr = document.createElement('tr');
+    var th = document.createElement('td');
+    th.textContent = cr.toFixed(1) + '%';
+    th.style.fontWeight = '700';
+    tr.appendChild(th);
+    noigrowths.forEach(function(g) {
+      var noi5 = baseNOI * Math.pow(1 + g/100, 5);
+      var val = noi5 / (cr / 100);
+      var td = document.createElement('td');
+      td.textContent = '$' + (val / 1e6).toFixed(1) + 'M';
+      if (val > 28000000) td.className = 'sens-hi';
+      else if (val < 22000000) td.className = 'sens-lo';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+})();
+
+// ══════════════════════════════════════════════════
+// Analyst Calc Zone
+// ══════════════════════════════════════════════════
+var scenarios = [];
+
+function fmt$(n) {
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return '$' + (n/1e3).toFixed(0) + 'K';
+  return '$' + n.toFixed(0);
+}
+
+function calcPMT(rate, nper, pv) {
+  // Monthly mortgage payment
+  var r = rate / 12;
+  if (r === 0) return pv / nper;
+  return pv * r * Math.pow(1+r, nper) / (Math.pow(1+r, nper) - 1);
+}
+
+function calcIRR(cashflows) {
+  // Newton-Raphson IRR (annual)
+  var guess = 0.15;
+  for (var i = 0; i < 100; i++) {
+    var npv = 0, dnpv = 0;
+    for (var t = 0; t < cashflows.length; t++) {
+      npv += cashflows[t] / Math.pow(1 + guess, t);
+      if (t > 0) dnpv -= t * cashflows[t] / Math.pow(1 + guess, t + 1);
+    }
+    var next = guess - npv / dnpv;
+    if (Math.abs(next - guess) < 1e-8) return next;
+    guess = next;
+  }
+  return guess;
+}
+
+function recalc() {
+  var price = +document.getElementById('sl-price').value;
+  var capPct = +document.getElementById('sl-cap').value;
+  var ltvPct = +document.getElementById('sl-ltv').value;
+  var ratePct = +document.getElementById('sl-rate').value;
+  var occPct = +document.getElementById('sl-occ').value;
+  var nogPct = +document.getElementById('sl-nog').value;
+
+  document.getElementById('lbl-price').textContent = '$' + (price/1e6).toFixed(2) + 'M';
+  document.getElementById('lbl-cap').textContent = capPct.toFixed(2) + '%';
+  document.getElementById('lbl-ltv').textContent = ltvPct.toFixed(0) + '%';
+  document.getElementById('lbl-rate').textContent = ratePct.toFixed(2) + '%';
+  document.getElementById('lbl-occ').textContent = occPct.toFixed(1) + '%';
+  document.getElementById('lbl-nog').textContent = nogPct.toFixed(2) + '%';
+
+  // NOI based on cap rate and price
+  var noi = price * (capPct / 100);
+  var loanAmt = price * (ltvPct / 100);
+  var equity = price - loanAmt;
+
+  // Debt service
+  var monthlyDS = calcPMT(ratePct / 100, 360, loanAmt);
+  var annualDS = monthlyDS * 12;
+  var dscr = noi / annualDS;
+
+  // CoC Y1
+  var ncf1 = noi - annualDS;
+  var coc = ncf1 / equity * 100;
+
+  // Exit value (Yr5 NOI at exit cap 6.2%)
+  var exitCapRate = 0.062;
+  var noi5 = noi * Math.pow(1 + nogPct / 100, 5);
+  var exitVal = noi5 / exitCapRate;
+
+  // IRR — simplified DCF
+  var cfs = [-equity];
+  for (var yr = 1; yr <= 5; yr++) {
+    var noiYr = noi * Math.pow(1 + nogPct / 100, yr);
+    // Approximate loan balance (rough amortization)
+    var loanBal = loanAmt * Math.pow(1 - 0.003, yr); // ~0.3% /yr principal pay
+    var ncfYr = noiYr - annualDS;
+    if (yr === 5) {
+      ncfYr += exitVal - loanBal;
+    }
+    cfs.push(ncfYr);
+  }
+  var irr = calcIRR(cfs) * 100;
+
+  // Going-in cap (from inputs)
+  var giCap = capPct;
+
+  // Update outputs
+  var dscrEl = document.getElementById('out-dscr');
+  dscrEl.textContent = dscr.toFixed(2) + '×';
+  dscrEl.style.color = dscr >= 1.25 ? 'var(--green)' : dscr >= 1.10 ? 'var(--yellow)' : 'var(--red)';
+
+  var irrEl = document.getElementById('out-irr');
+  irrEl.textContent = irr.toFixed(1) + '%';
+  irrEl.style.color = irr >= 15 ? 'var(--green)' : irr >= 10 ? 'var(--yellow)' : 'var(--red)';
+
+  document.getElementById('out-exit').textContent = fmt$(exitVal);
+  document.getElementById('out-gicap').textContent = giCap.toFixed(2) + '%';
+  document.getElementById('out-eq').textContent = fmt$(equity);
+
+  var cocEl = document.getElementById('out-coc');
+  cocEl.textContent = coc.toFixed(1) + '%';
+  cocEl.style.color = coc >= 5 ? 'var(--green)' : coc >= 3 ? 'var(--yellow)' : 'var(--red)';
+
+  // Store current for save
+  window._lastCalc = { price, capPct, ltvPct, ratePct, occPct, nogPct, dscr, irr, exitVal, giCap, equity, coc };
+}
+
+function saveScenario() {
+  if (!window._lastCalc) recalc();
+  var c = window._lastCalc;
+  scenarios.push(c);
+  var tbody = document.getElementById('scenario-tbody');
+  var tr = document.createElement('tr');
+  tr.innerHTML = [
+    scenarios.length,
+    fmt$(c.price),
+    c.capPct.toFixed(2) + '%',
+    c.ltvPct + '%',
+    c.ratePct.toFixed(2) + '%',
+    c.occPct.toFixed(1) + '%',
+    c.nogPct.toFixed(1) + '%',
+    c.dscr.toFixed(2) + '×',
+    c.irr.toFixed(1) + '%',
+    fmt$(c.exitVal),
+    c.coc.toFixed(1) + '%',
+    fmt$(c.equity)
+  ].map(function(v, i) { return '<td>' + v + '</td>'; }).join('');
+  tbody.appendChild(tr);
+  document.getElementById('scenario-table-wrap').style.display = 'block';
+  document.getElementById('scenario-count').textContent = scenarios.length + ' scenario(s) saved';
+}
+
+function clearScenarios() {
+  scenarios = [];
+  document.getElementById('scenario-tbody').innerHTML = '';
+  document.getElementById('scenario-table-wrap').style.display = 'none';
+  document.getElementById('scenario-count').textContent = '';
+}
+
+// Initialize
+recalc();
+
+// ══════════════════════════════════════════════════
+// Chat
+// ══════════════════════════════════════════════════
+function appendMsg(role, text) {
+  var hist = document.getElementById('chat-history');
+  var div = document.createElement('div');
+  div.className = 'chat-msg';
+  div.innerHTML = '<div class="chat-msg-role ' + role + '">' + (role === 'user' ? 'You' : 'Assistant') + '</div>' +
+                  '<div class="chat-msg-text">' + text.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+  hist.appendChild(div);
+  hist.scrollTop = hist.scrollHeight;
+}
+
+function appendThinking() {
+  var hist = document.getElementById('chat-history');
+  var div = document.createElement('div');
+  div.className = 'chat-msg';
+  div.id = 'thinking-msg';
+  div.innerHTML = '<div class="chat-msg-role assistant">Assistant</div><div class="chat-msg-text" style="color:var(--muted)">Thinking…</div>';
+  hist.appendChild(div);
+  hist.scrollTop = hist.scrollHeight;
+}
+
+function removeThinking() {
+  var el = document.getElementById('thinking-msg');
+  if (el) el.remove();
+}
+
+var chatHistory = [];
+
+function askQuestion(q) {
+  document.getElementById('chat-input').value = q;
+  sendChat();
+}
+
+function sendChat() {
+  var input = document.getElementById('chat-input');
+  var q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+
+  appendMsg('user', q);
+  chatHistory.push({ role: 'user', content: q });
+
+  if (!ANTHROPIC_API_KEY) {
+    // Demo mode
+    var demos = {
+      'dscr': 'The DSCR for Kingswood Cove is 1.28×. This is calculated as NOI ($1,456,000) divided by Annual Debt Service ($1,137,800). This exceeds the typical lender minimum of 1.20×, providing a 6.7% cushion — acceptable for this asset class.',
+      'summarize': '• 200-unit value-add multifamily in Austin, TX — 30% of units already renovated with $175/mo rent premium\n• Strong market fundamentals: 3.4% job growth, 4.2% rent growth, 5.8% vacancy in MSA\n• Returns: 16.2% IRR, 1.85× MOIC, 5.8% CoC Y1 — all above hurdle rates. DSCR 1.28× at 65% LTV.',
+      'risk': '1. **Interest Rate Risk** — Fixed at 6.25%; refinance risk at maturity if rates remain elevated\n2. **Occupancy Risk** — At 92%, any softening to <72% breaches break-even occupancy\n3. **Capex Overrun** — 140 remaining units at $8,500 each ($1.19M) could exceed budget if deferred maintenance found',
+      'exit': 'The exit strategy is a 5-year hold with disposition at a 6.2% cap rate (+70bps expansion). Projected exit value: $25.4M based on Yr5 NOI of $1.576M. Loan payoff of ~$17.9M leaves ~$7.5M equity. Combined with 5-year cash flows of ~$1.9M, total profit is ~$9.4M on $9.8M invested.',
+      'comps': 'Kingswood Cove ($1,500/mo, 92% occ) compares as follows vs local comps:\n• Riverside Flats (2005): $1,625/mo, 95% occ (+$125 premium, newer)\n• Cedar Creek (1995): $1,420/mo, 89% occ (below KWC in rent and occ)\n• Summit Ridge (2012): $1,780/mo, 96% occ (+$280 premium, luxury)'
+    };
+    var lower = q.toLowerCase();
+    var resp = 'Based on the Kingswood Cove OM data: ';
+    if (lower.includes('dscr')) resp = demos.dscr;
+    else if (lower.includes('summar')) resp = demos.summarize;
+    else if (lower.includes('risk')) resp = demos.risk;
+    else if (lower.includes('exit') || lower.includes('strategy')) resp = demos.exit;
+    else if (lower.includes('comp')) resp = demos.comps;
+    else resp += 'This deal is a 200-unit value-add multifamily in Austin, TX with a $28M purchase price, 5.5% going-in cap rate, DSCR of 1.28×, and projected 16.2% IRR. To get detailed AI analysis, please configure your Anthropic API key.';
+    setTimeout(function() { appendMsg('assistant', resp); }, 600);
+    return;
+  }
+
+  appendThinking();
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-calls': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: 1024,
+      system: 'You are a senior CRE investment analyst at a private equity firm. You have full access to the Kingswood Cove offering memorandum. Answer questions concisely and professionally. Use the following OM data:\n\n' + OM_CONTEXT,
+      messages: chatHistory
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    removeThinking();
+    var text = data.content && data.content[0] ? data.content[0].text : JSON.stringify(data);
+    chatHistory.push({ role: 'assistant', content: text });
+    appendMsg('assistant', text);
+  })
+  .catch(function(err) {
+    removeThinking();
+    appendMsg('assistant', 'API error: ' + err.message + '. Check your API key and CORS settings.');
+  });
+}
+
+// ══════════════════════════════════════════════════
+// IC Memo Generator
+// ══════════════════════════════════════════════════
+function generateMemo() {
+  var out = document.getElementById('memo-output');
+  out.style.display = 'block';
+
+  if (!ANTHROPIC_API_KEY) {
+    out.textContent = `INVESTMENT COMMITTEE MEMORANDUM
+════════════════════════════════════════════════════
+ASSET:     Kingswood Cove Apartments
+LOCATION:  Austin-Round Rock MSA, Texas
+DATE:      ` + new Date().toLocaleDateString() + `
+PREPARED:  CRE Analysis Platform (Demo Mode)
+════════════════════════════════════════════════════
+
+I. EXECUTIVE SUMMARY
+Kingswood Cove is a 200-unit Class B multifamily property in the Austin MSA offering a value-add opportunity through a systematic renovation program. At a $28,000,000 purchase price (5.5% going-in cap), the deal projects a 16.2% levered IRR and 1.85× MOIC over a 5-year hold.
+
+II. DEAL THESIS
+• 30% of units renovated generating $175/mo rent premium (32% ROI on $8,500 cost)
+• 140 unrenovated units represent $294,000 incremental NOI potential (+$4.7M in value)
+• Austin MSA: 3.4% job growth, 4.2% rent growth — top-tier multifamily market
+• DSCR of 1.28× with 65% LTV provides adequate margin of safety
+
+III. FINANCIAL ANALYSIS
+- Purchase Price: $28,000,000 ($140,000/unit)
+- NOI (T1): $1,456,000 | Cap Rate: 5.5%
+- Debt: $18,200,000 @ 6.25% / 30yr AM | DSCR: 1.28×
+- Equity: $9,800,000 (35%) | CoC Y1: 5.8%
+- Exit Value (Yr5, 6.2% cap): $25,419,694
+- IRR: 16.2% | MOIC: 1.85× | Break-even Occ: 72%
+
+IV. RISK FACTORS
+1. Interest rate refinance risk at maturity
+2. 140 unrenovated units — execution risk on renovation timeline
+3. 28-year-old asset — HVAC/roof capex exposure
+4. New supply pipeline of 3,200 units in 12 months
+
+V. RECOMMENDATION
+PROCEED TO PSA — Conditional on receipt of T12 actuals, rent roll, PCA report, and confirmed loan term sheet. Renovation ROI and market fundamentals support the value-add thesis.
+
+════════════════════════════════════════════════════
+NOTE: Configure your Anthropic API key for AI-generated memos.
+════════════════════════════════════════════════════`;
+    return;
+  }
+
+  out.textContent = 'Generating IC Memo via Claude…';
+
+  var prompt = 'Generate a full, professional Investment Committee Memorandum for the following deal. Include: Executive Summary, Investment Thesis, Property Overview, Market Analysis, Financial Summary (table format), Debt/Capital Structure, Value-Add Business Plan, Risk Factors & Mitigants, Exit Strategy, and Recommendation. Use the following OM data:\n\n' + OM_CONTEXT;
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-calls': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    out.textContent = data.content && data.content[0] ? data.content[0].text : JSON.stringify(data);
+  })
+  .catch(function(err) {
+    out.textContent = 'Error: ' + err.message;
+  });
+}
+
+// Hide API key note if key is set
+if (ANTHROPIC_API_KEY) {
+  document.getElementById('api-key-note').style.display = 'none';
+}
+</script>
+</body>
+</html>
