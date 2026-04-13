@@ -176,7 +176,7 @@ a { color: var(--accent); text-decoration: none; }
 .landing-upload-btn {
   display: inline-block;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
-  color: #fff;
+  color: #0a0c12;
   padding: 9px 24px; border-radius: 8px;
   font-size: 13px; font-weight: 700;
   box-shadow: 0 0 14px rgba(79,158,255,.4);
@@ -479,7 +479,7 @@ input[type=range]::-webkit-slider-thumb {
 .btn:active   { transform: scale(.97); }
 .btn-primary  {
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
-  color: #fff;
+  color: #0a0c12;
   box-shadow: 0 0 12px rgba(79,158,255,.35);
   transition: opacity .15s, transform .1s, box-shadow .15s;
 }
