@@ -578,58 +578,5 @@
 
 <script src="app.js"></script>
 
-<!-- ═══ Page Navigation (view/page switching) ═══ -->
-<script>
-function navigateTo(target) {
-  /* view-level switch: upload ↔ app */
-  if (target === 'upload') {
-    document.getElementById('view-upload').classList.add('active');
-    document.getElementById('view-app').classList.remove('active');
-    return;
-  }
-  /* Everything else lives inside view-app */
-  document.getElementById('view-upload').classList.remove('active');
-  document.getElementById('view-app').classList.add('active');
-
-  /* page-level switch inside app */
-  var pages = document.querySelectorAll('.page');
-  pages.forEach(function(p){ p.classList.remove('active'); });
-  var navLinks = document.querySelectorAll('.nav-link');
-  navLinks.forEach(function(l){ l.classList.remove('active'); });
-
-  var pageId = 'page-' + target;
-  var pg = document.getElementById(pageId);
-  if (pg) pg.classList.add('active');
-
-  navLinks.forEach(function(l){
-    if (l.getAttribute('data-page') === target) l.classList.add('active');
-  });
-}
-
-/* Sidebar nav clicks */
-document.querySelectorAll('.nav-link[data-page]').forEach(function(btn){
-  btn.addEventListener('click', function(){
-    navigateTo(btn.getAttribute('data-page'));
-  });
-});
-
-/* Auto-navigate to dashboard after upload completes.
-   This script runs after app.js, so setUploadStatus is already defined. */
-(function(){
-  var origSetUploadStatus = window.setUploadStatus;
-  if (typeof origSetUploadStatus !== 'function') return;
-  window.setUploadStatus = function(msg, pct) {
-    origSetUploadStatus(msg, pct);
-    if (pct >= 100) {
-      setTimeout(function(){ navigateTo('dashboard'); }, 800);
-      var sfi = document.getElementById('sidebar-file-indicator');
-      var sfn = document.getElementById('sidebar-file-name');
-      var ufn = document.getElementById('upload-file-name');
-      if (sfi) sfi.style.display = '';
-      if (sfn && ufn) sfn.textContent = ufn.textContent;
-    }
-  };
-})();
-</script>
 </body>
 </html>
