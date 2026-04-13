@@ -890,6 +890,9 @@ function navigateTo(id, btn) {
     animateTabIn(panel);
   }
   if(btn) btn.classList.add('active');
+  // Show the Analyst Calc Zone only on the Dashboard tab
+  var cz=document.querySelector('.calc-zone');
+  if(cz) cz.style.display=(id==='dashboard')?'block':'none';
 }
 
 // Backward-compatible alias
