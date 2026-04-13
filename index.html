@@ -122,10 +122,14 @@
       <button class="tab-btn" onclick="navigateTo('ask',this)">
         <span class="tab-icon">🤖</span> Ask Document <span class="tab-num">6</span>
       </button>
+      <button class="tab-btn" onclick="navigateTo('compare',this)" id="nav-compare">
+        <span class="tab-icon">⚖️</span> Compare Deals <span class="tab-num cmp-count-badge" id="cmp-count-badge">0</span>
+      </button>
     </nav>
 
     <div class="sidebar-footer">
       <button class="sidebar-upload-btn" onclick="showLanding()">📂 Upload New Document</button>
+      <button class="sidebar-upload-btn" style="margin-top:6px;color:var(--accent);border-color:rgba(79,158,255,.35)" onclick="addToComparison()">➕ Add Current Deal to Compare</button>
     </div>
   </aside>
 
@@ -144,6 +148,7 @@
     <div class="tab-panel" id="tab-esg"></div>
     <div class="tab-panel" id="tab-diligence"></div>
     <div class="tab-panel" id="tab-ask"></div>
+    <div class="tab-panel" id="tab-compare"></div>
 
     <!-- ══════════════════════════════════════════════
          ANALYST CALC ZONE — Live Scenario Modeler

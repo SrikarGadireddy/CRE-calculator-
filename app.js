@@ -810,6 +810,8 @@ function renderAllTabs() {
     askEl.dataset.initialized='1';
     initChatHistory();
   }
+  // Compare tab: re-render to reflect any data update, but preserve compareDeals store
+  setTab('tab-compare', renderComparison());
 }
 
 // ══════════════════════════════════════════════════
@@ -1672,10 +1674,322 @@ function generateMemo() {
 }
 
 // ══════════════════════════════════════════════════
+// DEAL COMPARISON ENGINE
+// ══════════════════════════════════════════════════
+
+var compareDeals = []; // [{name, color, data}]
+var CMP_COLORS = ['accent','green','purple','orange','rose'];
+
+// Deep-clone dealData into the comparison store
+function addToComparison() {
+  if(compareDeals.length>=5){
+    alert('Maximum 5 deals can be compared at once. Remove a deal first.');
+    return;
+  }
+  var hasData = dealData.purchasePrice||dealData.noi||dealData.units||dealData.propertyName;
+  if(!hasData){
+    alert('No deal data loaded yet. Upload a document first, or enter values in the Analyst Calc Zone.');
+    return;
+  }
+  var defaultName = dealData.propertyName || ('Deal '+(compareDeals.length+1));
+  var name = prompt('Name this deal for comparison:', defaultName);
+  if(name===null) return;
+  if(!name.trim()) name = defaultName;
+  compareDeals.push({
+    name: name.trim(),
+    color: CMP_COLORS[compareDeals.length % CMP_COLORS.length],
+    data: JSON.parse(JSON.stringify(dealData))
+  });
+  updateCmpBadge();
+  setTab('tab-compare', renderComparison());
+}
+
+function removeFromComparison(idx) {
+  compareDeals.splice(idx, 1);
+  compareDeals.forEach(function(d,i){ d.color = CMP_COLORS[i % CMP_COLORS.length]; });
+  updateCmpBadge();
+  setTab('tab-compare', renderComparison());
+}
+
+function updateCmpBadge() {
+  var el = document.getElementById('cmp-count-badge');
+  if(el) el.textContent = compareDeals.length;
+}
+
+// Compute key return metrics for a deal's data object
+function computeReturns(d) {
+  var la  = d.loanAmount || (d.purchasePrice ? d.purchasePrice * (d.ltv||65)/100 : 0);
+  var eq  = d.purchasePrice ? d.purchasePrice - la : 0;
+  var r   = (d.interestRate||6.25)/100;
+  var am  = d.amortization||30;
+  var hold = d.holdPeriod||5;
+  var nog = (d.noiGrowth!=null ? d.noiGrowth : 2)/100;
+  var noi = d.noi || 0;
+  var exitCap = d.capRateExit || (d.capRateGoing ? d.capRateGoing+0.7 : 6.5);
+  if(!noi||!la||!eq||eq<=0) return {dscr:null,irr:null,moic:null,coc:null,debtYield:null,exitVal:null};
+  var annDS = calcPMT(r, am*12, la)*12;
+  if(!annDS||annDS<=0) return {dscr:null,irr:null,moic:null,coc:null,debtYield:null,exitVal:null};
+  var dscr = noi/annDS;
+  var sched = buildLoanSchedule(la, r, am, hold);
+  var loanBal = sched[hold-1].endBal;
+  var noiExit = noi*Math.pow(1+nog, hold);
+  var exitVal = noiExit/(exitCap/100);
+  var cfs = [-eq], cumCF = 0;
+  for(var yr=1; yr<=hold; yr++){
+    var noiYr = noi*Math.pow(1+nog, yr);
+    var ncfYr = noiYr - annDS;
+    cumCF += ncfYr;
+    cfs.push(yr===hold ? ncfYr+(exitVal-loanBal) : ncfYr);
+  }
+  var irr = calcIRR(cfs)*100;
+  var moic = (cumCF+(exitVal-loanBal))/eq;
+  var coc  = (noi-annDS)/eq*100;
+  var debtYield = noi/la*100;
+  return {dscr:dscr, irr:irr, moic:moic, coc:coc, debtYield:debtYield, exitVal:exitVal};
+}
+
+// Escape HTML entities
+function escHtml(s) {
+  if(!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Render the full comparison tab
+function renderComparison() {
+  if(!compareDeals.length){
+    return '<div class="page-title">⚖️ Deal Comparison</div>'+
+      '<div class="page-sub">Upload documents and add deals to compare side-by-side across all key parameters.</div>'+
+      '<div class="cmp-empty">'+
+        '<div class="cmp-empty-icon">⚖️</div>'+
+        '<div style="font-weight:700;font-size:16px">No deals added yet</div>'+
+        '<div class="cmp-empty-sub">Upload a document, then click <strong>➕ Add Current Deal to Compare</strong> in the sidebar.<br>You can compare up to 5 deals at once.</div>'+
+      '</div>';
+  }
+
+  var returns = compareDeals.map(function(cd){ return computeReturns(cd.data); });
+
+  function cmpRow(label, vals, fmtFn, opts) {
+    opts = opts||{};
+    var numVals = vals.map(function(v){
+      return (v!=null&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):null;
+    });
+    var valid = numVals.filter(function(v){return v!==null;});
+    var best=null, worst=null;
+    if(!opts.noHighlight && valid.length>=2){
+      var sorted = valid.slice().sort(function(a,b){return a-b;});
+      if(opts.higherIsBetter===false){ best=sorted[0]; worst=sorted[sorted.length-1]; }
+      else { best=sorted[sorted.length-1]; worst=sorted[0]; }
+    }
+    var cells = vals.map(function(v,i){
+      if(v==null||v==='') return '<td class="cmp-val cmp-na">—</td>';
+      var num = numVals[i];
+      var cls = 'cmp-val', badge = '';
+      if(num!==null && best!==null){
+        if(num===best && num!==worst){ cls+=' cmp-best'; badge='<span class="cmp-winner">▲</span>'; }
+        else if(num===worst && num!==best){ cls+=' cmp-worst'; }
+      }
+      return '<td class="'+cls+'">'+(fmtFn?fmtFn(v,i):escHtml(String(v)))+badge+'</td>';
+    });
+    return '<tr><td class="cmp-label-col">'+label+'</td>'+cells.join('')+'</tr>';
+  }
+
+  function sectionRow(title) {
+    return '<tr class="cmp-section-row"><td colspan="'+(compareDeals.length+1)+'">'+title+'</td></tr>';
+  }
+
+  function col(key){ return compareDeals.map(function(cd){return cd.data[key];}); }
+  function colRet(key){ return returns.map(function(r){return r[key];}); }
+
+  var headerCells = compareDeals.map(function(cd,i){
+    var d = cd.data;
+    return '<th class="cmp-deal-header cmp-slot-'+i+'" style="border-top-color:var(--'+cd.color+')">'+
+      '<div class="cmp-deal-name cmp-slot-'+i+'">'+escHtml(cd.name)+'</div>'+
+      (d.location?'<div class="cmp-deal-sub">'+escHtml(d.location)+'</div>':'')+
+      '<button class="cmp-deal-remove" onclick="removeFromComparison('+i+')">✕ Remove</button>'+
+    '</th>';
+  }).join('');
+
+  var rows = '';
+
+  rows += sectionRow('🏷️ Identity');
+  rows += cmpRow('Property Name',      col('propertyName'),  function(v){return escHtml(v);}, {noHighlight:true});
+  rows += cmpRow('Location',           col('location'),      function(v){return escHtml(v);}, {noHighlight:true});
+  rows += cmpRow('Asset Class',        col('assetClass'),    function(v){return escHtml(v||'—');},{noHighlight:true});
+  rows += cmpRow('Strategy',           col('strategy'),      function(v){return escHtml(v||'—');},{noHighlight:true});
+  rows += cmpRow('Units',              col('units'),         function(v){return v?v.toLocaleString():'—';},{higherIsBetter:true});
+  rows += cmpRow('Year Built',         col('yearBuilt'),     function(v){return v?String(v):'—';},{higherIsBetter:false});
+
+  rows += sectionRow('💰 Financials');
+  rows += cmpRow('Purchase Price',     col('purchasePrice'), function(v){return v?fmt$(v):'—';},{higherIsBetter:false});
+  rows += cmpRow('NOI',                col('noi'),           function(v){return v?commas(v):'—';},{higherIsBetter:true});
+  rows += cmpRow('Going-in Cap Rate',  col('capRateGoing'),  function(v){return v?fmtPct(v,2):'—';},{higherIsBetter:true});
+  rows += cmpRow('Exit Cap Rate',      col('capRateExit'),   function(v){return v?fmtPct(v,2):'—';},{higherIsBetter:false});
+  rows += cmpRow('GPR',                col('gpr'),           function(v){return v?commas(v):'—';},{higherIsBetter:true});
+  rows += cmpRow('EGI',                col('egi'),           function(v){return v?commas(v):'—';},{higherIsBetter:true});
+  rows += cmpRow('Total Expenses',     col('totalExpenses'), function(v){return v?commas(v):'—';},{higherIsBetter:false});
+  rows += cmpRow('Expense Ratio',
+    compareDeals.map(function(cd){
+      var d=cd.data;
+      return (d.totalExpenses&&d.noi)?Math.round(d.totalExpenses/(d.noi+d.totalExpenses)*100):null;
+    }),
+    function(v){return v!=null?v+'%':'—';},{higherIsBetter:false});
+  rows += cmpRow('NOI / Unit',
+    compareDeals.map(function(cd){
+      var d=cd.data;
+      return (d.noi&&d.units)?Math.round(d.noi/d.units):null;
+    }),
+    function(v){return v?commas(v):'—';},{higherIsBetter:true});
+
+  rows += sectionRow('🏦 Debt Structure');
+  rows += cmpRow('Loan Amount',        col('loanAmount'),    function(v){return v?fmt$(v):'—';},{higherIsBetter:false});
+  rows += cmpRow('LTV',                col('ltv'),           function(v){return v?fmtPct(v,0):'—';},{higherIsBetter:false});
+  rows += cmpRow('Interest Rate',      col('interestRate'),  function(v){return v?fmtPct(v,2):'—';},{higherIsBetter:false});
+  rows += cmpRow('Amortization',       col('amortization'),  function(v){return v?v+' yr':'—';},{noHighlight:true});
+  rows += cmpRow('Loan Term',          col('loanTerm'),      function(v){return v?v+' yr':'—';},{noHighlight:true});
+  rows += cmpRow('IO Period',          col('ioPeriod'),      function(v){return v?v+' mo':'—';},{noHighlight:true});
+  rows += cmpRow('Equity Required',
+    compareDeals.map(function(cd){
+      var d=cd.data;
+      if(!d.purchasePrice) return null;
+      return d.purchasePrice-(d.loanAmount||(d.purchasePrice*(d.ltv||65)/100));
+    }),
+    function(v){return v?fmt$(v):'—';},{higherIsBetter:false});
+
+  rows += sectionRow('📈 Returns (Computed)');
+  rows += cmpRow('DSCR',               colRet('dscr'),       function(v){return v?v.toFixed(2)+'×':'—';},{higherIsBetter:true});
+  rows += cmpRow('Levered IRR',        colRet('irr'),        function(v){return v?v.toFixed(1)+'%':'—';},{higherIsBetter:true});
+  rows += cmpRow('MOIC',               colRet('moic'),       function(v){return v?v.toFixed(2)+'×':'—';},{higherIsBetter:true});
+  rows += cmpRow('CoC Return Y1',      colRet('coc'),        function(v){return v?v.toFixed(1)+'%':'—';},{higherIsBetter:true});
+  rows += cmpRow('Debt Yield',         colRet('debtYield'),  function(v){return v?v.toFixed(1)+'%':'—';},{higherIsBetter:true});
+  rows += cmpRow('Projected Exit Value',colRet('exitVal'),   function(v){return v?fmt$(v):'—';},{higherIsBetter:true});
+  rows += cmpRow('Hold Period',        col('holdPeriod'),    function(v){return v?v+' yr':'—';},{noHighlight:true});
+  rows += cmpRow('NOI Growth (ann.)',  col('noiGrowth'),     function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
+
+  rows += sectionRow('🔑 Leasing & Occupancy');
+  rows += cmpRow('Physical Occupancy', col('physicalOccupancy'), function(v){return v?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Vacancy %',          col('vacancyPct'),        function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:false});
+  rows += cmpRow('Economic Occupancy', col('economicOccupancy'), function(v){return v?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Avg Effective Rent', col('avgEffectiveRent'),  function(v){return v?commas(v)+'/mo':'—';},{higherIsBetter:true});
+  rows += cmpRow('Avg Market Rent',    col('avgMarketRent'),     function(v){return v?commas(v)+'/mo':'—';},{higherIsBetter:true});
+  rows += cmpRow('Rent-to-Market Gap',
+    compareDeals.map(function(cd){
+      var d=cd.data;
+      return (d.avgEffectiveRent&&d.avgMarketRent)?
+        Math.round((d.avgMarketRent-d.avgEffectiveRent)/d.avgMarketRent*100):null;
+    }),
+    function(v){return v!=null?(v>0?'+':'')+v+'%':'—';},{higherIsBetter:true});
+  rows += cmpRow('Renewal Rate',       col('renewalRate'),   function(v){return v?fmtPct(v,0):'—';},{higherIsBetter:true});
+  rows += cmpRow('Leased %',           col('leasedPct'),     function(v){return v?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Avg Days to Lease',  col('avgDaysToLease'),function(v){return v?v+' days':'—';},{higherIsBetter:false});
+
+  rows += sectionRow('🗺️ Market');
+  rows += cmpRow('Rent Growth',
+    compareDeals.map(function(cd){return cd.data.market?cd.data.market.rentGrowth:null;}),
+    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Job Growth',
+    compareDeals.map(function(cd){return cd.data.market?cd.data.market.jobGrowth:null;}),
+    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Population Growth',
+    compareDeals.map(function(cd){return cd.data.market?cd.data.market.popGrowth:null;}),
+    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Market Vacancy',
+    compareDeals.map(function(cd){return cd.data.market?cd.data.market.marketVacancy:null;}),
+    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:false});
+
+  rows += sectionRow('🛠️ Value-Add / Renovation');
+  rows += cmpRow('Reno Cost / Unit',
+    compareDeals.map(function(cd){return cd.data.renovation?cd.data.renovation.costPerUnit:null;}),
+    function(v){return v?commas(v):'—';},{higherIsBetter:false});
+  rows += cmpRow('Rent Premium Post-Reno',
+    compareDeals.map(function(cd){return cd.data.renovation?cd.data.renovation.rentPremium:null;}),
+    function(v){return v?commas(v)+'/mo':'—';},{higherIsBetter:true});
+  rows += cmpRow('Units to Renovate',
+    compareDeals.map(function(cd){return cd.data.renovation?cd.data.renovation.unitsRenovated:null;}),
+    function(v){return v!=null?String(v):'—';},{noHighlight:true});
+
+  return '<div class="page-title">⚖️ Deal Comparison</div>'+
+    '<div class="page-sub">'+compareDeals.length+' deal'+(compareDeals.length>1?'s':'')+' compared. '+
+    '<span style="color:var(--green)">▲ green</span> = best value per row · '+
+    '<span style="color:var(--red)">red</span> = worst · '+
+    'Returns are computed from extracted data.</div>'+
+    '<div class="cmp-toolbar">'+
+      '<button class="btn btn-primary" onclick="addToComparison()" style="font-size:12px;padding:6px 14px">➕ Add Another Deal</button>'+
+      '<button class="btn btn-secondary" onclick="clearComparison()" style="font-size:12px;padding:6px 14px">🗑 Remove All</button>'+
+      '<button class="btn btn-secondary" onclick="exportComparisonCSV()" style="font-size:12px;padding:6px 14px">📥 Export CSV</button>'+
+    '</div>'+
+    '<div class="table-wrap" style="overflow-x:auto">'+
+      '<table class="data-table" style="min-width:600px">'+
+        '<thead><tr>'+
+          '<th style="min-width:180px;background:var(--card2)">Parameter</th>'+
+          headerCells+
+        '</tr></thead>'+
+        '<tbody>'+rows+'</tbody>'+
+      '</table>'+
+    '</div>';
+}
+
+function clearComparison() {
+  compareDeals = [];
+  updateCmpBadge();
+  setTab('tab-compare', renderComparison());
+}
+
+// Export comparison table to CSV
+function exportComparisonCSV() {
+  if(!compareDeals.length) return;
+  var rets = compareDeals.map(function(cd){ return computeReturns(cd.data); });
+  var hdrs = ['Parameter'].concat(compareDeals.map(function(cd){return cd.name;}));
+  function csvCell(v){ return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'; }
+  function csvRow(label, vals){ return [label].concat(vals).map(csvCell).join(','); }
+  function col(key){ return compareDeals.map(function(cd){return cd.data[key];}); }
+  function colR(key){ return rets.map(function(r){return r[key]!=null?r[key].toFixed(2):''}); }
+  var lines = [hdrs.map(csvCell).join(','),
+    csvRow('Property Name',       col('propertyName')),
+    csvRow('Location',            col('location')),
+    csvRow('Asset Class',         col('assetClass')),
+    csvRow('Strategy',            col('strategy')),
+    csvRow('Units',               col('units')),
+    csvRow('Year Built',          col('yearBuilt')),
+    csvRow('Purchase Price',      col('purchasePrice')),
+    csvRow('NOI',                 col('noi')),
+    csvRow('Cap Rate %',          col('capRateGoing')),
+    csvRow('Exit Cap %',          col('capRateExit')),
+    csvRow('GPR',                 col('gpr')),
+    csvRow('EGI',                 col('egi')),
+    csvRow('Total Expenses',      col('totalExpenses')),
+    csvRow('Loan Amount',         col('loanAmount')),
+    csvRow('LTV %',               col('ltv')),
+    csvRow('Interest Rate %',     col('interestRate')),
+    csvRow('Amortization yr',     col('amortization')),
+    csvRow('Loan Term yr',        col('loanTerm')),
+    csvRow('IO Period mo',        col('ioPeriod')),
+    csvRow('DSCR',                colR('dscr')),
+    csvRow('Levered IRR %',       colR('irr')),
+    csvRow('MOIC',                colR('moic')),
+    csvRow('CoC Y1 %',            colR('coc')),
+    csvRow('Debt Yield %',        colR('debtYield')),
+    csvRow('Exit Value',          colR('exitVal')),
+    csvRow('Physical Occ %',      col('physicalOccupancy')),
+    csvRow('Avg Eff Rent',        col('avgEffectiveRent')),
+    csvRow('Avg Market Rent',     col('avgMarketRent')),
+    csvRow('Renewal Rate %',      col('renewalRate')),
+    csvRow('NOI Growth %',        col('noiGrowth'))
+  ];
+  var blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url;
+  a.download = 'cre-comparison-'+(new Date().toISOString().slice(0,10))+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════
 if(ANTHROPIC_API_KEY){
-  var noteEl=document.getElementById('api-key-note');
   if(noteEl) noteEl.style.display='none';
 }
 
