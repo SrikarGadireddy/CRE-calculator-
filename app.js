@@ -903,10 +903,9 @@ function escapeHtml(str) {
 let msgId = 0;
 /**
  * @param {string} role     'user' | 'assistant'
- * @param {string} content  message text/HTML
- * @param {boolean} isHtml  true only for pre-built trusted HTML responses
+ * @param {string} content  message text (always escaped as textContent)
  */
-function addChatMessage(role, content, isHtml = false) {
+function addChatMessage(role, content) {
   const id  = 'msg-' + (++msgId);
   const msgs = document.getElementById('chat-messages');
   if (!msgs) return id;
@@ -917,12 +916,7 @@ function addChatMessage(role, content, isHtml = false) {
 
   const bubble  = document.createElement('div');
   bubble.className = 'chat-bubble';
-  // Only render HTML for pre-built trusted assistant responses; everything else is escaped text
-  if (isHtml && role === 'assistant') {
-    bubble.innerHTML = content;
-  } else {
-    bubble.textContent = content;
-  }
+  bubble.textContent = content;
 
   const div = document.createElement('div');
   div.className = 'chat-msg ' + role; // role is always 'user' or 'assistant' — no escaping needed
