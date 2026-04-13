@@ -3,6 +3,8 @@
  * app.js  —  All application logic
  */
 
+const AUTO_NAVIGATE_DELAY_MS = 1200;
+
 /* ═══════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════ */
@@ -236,33 +238,43 @@ function buildSensitivityTable(cv) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   TAB SWITCHING
+   PAGE NAVIGATION
 ═══════════════════════════════════════════════════════════ */
 
-function initSidebarTabs() {
-  document.querySelectorAll('.stab').forEach(btn => {
+function navigateTo(target) {
+  if (target === 'upload') {
+    document.getElementById('view-upload').classList.add('active');
+    document.getElementById('view-app').classList.remove('active');
+    return;
+  }
+  // Show app view, hide upload view
+  document.getElementById('view-upload').classList.remove('active');
+  document.getElementById('view-app').classList.add('active');
+
+  // Switch pages within app
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+
+  const page = document.getElementById('page-' + target);
+  if (page) page.classList.add('active');
+
+  const navBtn = document.querySelector('.nav-link[data-page="' + target + '"]');
+  if (navBtn) navBtn.classList.add('active');
+}
+
+function initNavigation() {
+  document.querySelectorAll('.nav-link').forEach(btn => {
     btn.addEventListener('click', () => {
-      const tab = btn.dataset.stab;
-      document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.stab-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      const panel = document.getElementById('sp-' + tab);
-      if (panel) panel.classList.add('active');
+      navigateTo(btn.dataset.page);
     });
   });
 }
 
-function initMainTabs() {
-  document.querySelectorAll('.mtab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tab = btn.dataset.mtab;
-      document.querySelectorAll('.mtab').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.mtab-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      const panel = document.getElementById('mp-' + tab);
-      if (panel) panel.classList.add('active');
-    });
-  });
+function updateSidebarFileIndicator(fileName) {
+  const sfi = document.getElementById('sidebar-file-indicator');
+  const sfn = document.getElementById('sidebar-file-name');
+  if (sfi) sfi.style.display = 'flex';
+  if (sfn) sfn.textContent = fileName;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1009,6 +1021,9 @@ function processFile(file) {
         applyExtractedData(extracted);
         setUploadStatus('✅ Done — ' + extracted.extractedFields.length + ' fields extracted.', 100);
         showExtractedTags(extracted.extractedFields);
+
+        updateSidebarFileIndicator(file.name);
+        setTimeout(() => navigateTo('dashboard'), AUTO_NAVIGATE_DELAY_MS);
       } catch (err) { setUploadStatus('⚠ Error: ' + err.message, 0); }
     };
     reader.readAsText(file);
@@ -1056,6 +1071,9 @@ function parsePDF(file) {
             applyExtractedData(extracted);
             setUploadStatus('✅ Done — ' + extracted.extractedFields.length + ' fields from ' + total + '-page PDF.', 100);
             showExtractedTags(extracted.extractedFields);
+
+            updateSidebarFileIndicator(file.name);
+            setTimeout(() => navigateTo('dashboard'), AUTO_NAVIGATE_DELAY_MS);
           } catch (err) { setUploadStatus('⚠ Extraction error: ' + err.message, 0); }
         }
       }).catch(err => {
@@ -1107,6 +1125,9 @@ function parseExcel(arrayBuffer) {
   applyExtractedData(extracted);
   setUploadStatus('✅ Done — ' + extracted.extractedFields.length + ' fields from spreadsheet.', 100);
   showExtractedTags(extracted.extractedFields);
+
+  updateSidebarFileIndicator(document.getElementById('upload-file-name')?.textContent || 'Spreadsheet');
+  setTimeout(() => navigateTo('dashboard'), AUTO_NAVIGATE_DELAY_MS);
 }
 
 function extractCREData(text) {
@@ -1240,8 +1261,7 @@ function initBaseScenario() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  initSidebarTabs();
-  initMainTabs();
+  initNavigation();
   initSliders();
   initBaseScenario();
   updateCalculations();
