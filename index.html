@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <!-- PDF parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Excel parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div class="app-container">
@@ -26,9 +30,33 @@
     <div class="data-completeness-bar">
       <div class="dc-header">
         <span class="dc-label">Data Completeness</span>
-        <span class="dc-value">62%</span>
+        <span class="dc-value" id="dc-pct">62%</span>
       </div>
-      <div class="dc-track"><div class="dc-fill" style="width:62%"></div></div>
+      <div class="dc-track"><div class="dc-fill" id="dc-fill-bar" style="width:62%"></div></div>
+    </div>
+
+    <!-- ── Document Upload Zone ── -->
+    <div class="upload-zone">
+      <div class="upload-drop" id="upload-drop"
+           onclick="document.getElementById('file-input').click()"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)">
+        <div class="upload-drop-icon">📂</div>
+        <div class="upload-drop-label">Upload OM / T12 / Rent Roll</div>
+        <div class="upload-drop-sub">PDF (any size), Excel (.xlsx/.xls), CSV, or TXT</div>
+      </div>
+      <input type="file" id="file-input" accept=".pdf,.xlsx,.xls,.csv,.txt,.text"
+             style="display:none" onchange="handleFileSelect(event)">
+    </div>
+    <div class="upload-status" id="upload-status" style="display:none">
+      <div class="upload-status-bar"><div class="upload-status-fill" id="upload-status-fill"></div></div>
+      <div class="upload-file-info">
+        <span class="upload-file-icon" id="upload-file-icon">📄</span>
+        <span class="upload-file-name" id="upload-file-name"></span>
+      </div>
+      <div class="upload-msg" id="upload-msg">Processing…</div>
+      <div class="upload-fields" id="upload-fields"></div>
     </div>
 
     <!-- Sidebar Tab Nav (3×3 grid) -->

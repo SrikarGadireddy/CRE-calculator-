@@ -145,6 +145,42 @@ body {
   transition: width 0.6s ease;
 }
 
+/* ── Upload Zone ── */
+.upload-zone {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
+}
+.upload-drop {
+  border: 2px dashed rgba(255,255,255,0.18);
+  border-radius: 8px;
+  padding: 12px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.upload-drop:hover, .upload-drop.drag-over {
+  border-color: var(--primary);
+  background: rgba(30,111,219,0.08);
+}
+.upload-drop-icon { font-size: 20px; margin-bottom: 4px; }
+.upload-drop-label { font-size: 11px; font-weight: 600; color: var(--sidebar-text); margin-bottom: 2px; }
+.upload-drop-sub   { font-size: 10px; color: var(--sidebar-dim); }
+.upload-status {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--sidebar-border);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.upload-status-bar  { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-bottom: 6px; overflow: hidden; }
+.upload-status-fill { height: 100%; width: 0%; background: var(--primary); border-radius: 2px; transition: width .3s; }
+.upload-file-info   { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.upload-file-icon   { font-size: 14px; }
+.upload-file-name   { color: var(--sidebar-text); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.upload-msg         { color: var(--sidebar-dim); font-size: 10.5px; }
+.upload-fields      { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.upload-field-tag   { background: rgba(30,111,219,0.2); color: var(--blue-light); border-radius: 4px; padding: 2px 6px; font-size: 9.5px; font-weight: 600; }
+
 /* ── Sidebar Tab Navigation (3×3 grid) ── */
 .sidebar-tabs {
   display: grid;

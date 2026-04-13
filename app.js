@@ -950,6 +950,274 @@ function removeMessage(id) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   DOCUMENT UPLOAD & CRE DATA EXTRACTION ENGINE
+═══════════════════════════════════════════════════════════ */
+
+function setUploadStatus(msg, pct) {
+  const statusEl = document.getElementById('upload-status');
+  const fillEl   = document.getElementById('upload-status-fill');
+  const msgEl    = document.getElementById('upload-msg');
+  if (statusEl) statusEl.style.display = 'block';
+  if (fillEl)   fillEl.style.width = pct + '%';
+  if (msgEl)    msgEl.textContent = msg;
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById('upload-drop').classList.remove('drag-over');
+  const file = event.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) processFile(file);
+  // Reset input so same file can be re-uploaded
+  event.target.value = '';
+}
+
+function processFile(file) {
+  const nameEl = document.getElementById('upload-file-name');
+  const iconEl = document.getElementById('upload-file-icon');
+  const fieldsEl = document.getElementById('upload-fields');
+  if (nameEl) nameEl.textContent = file.name;
+  if (fieldsEl) fieldsEl.innerHTML = '';
+  const ext = file.name.split('.').pop().toLowerCase();
+  const icons = { pdf: '📕', xlsx: '📗', xls: '📗', csv: '📊', txt: '📄', text: '📄' };
+  if (iconEl) iconEl.textContent = icons[ext] || '📄';
+  setUploadStatus('Reading file…', 10);
+
+  if (ext === 'pdf') {
+    // Use object URL so pdf.js can stream large files without loading all into memory
+    parsePDF(file);
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    const reader = new FileReader();
+    reader.onerror = () => setUploadStatus('⚠ Could not read file.', 0);
+    reader.onload = e => {
+      setUploadStatus('Parsing spreadsheet…', 40);
+      try { parseExcel(e.target.result); }
+      catch (err) { setUploadStatus('⚠ Error: ' + err.message, 0); }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    const reader = new FileReader();
+    reader.onerror = () => setUploadStatus('⚠ Could not read file.', 0);
+    reader.onload = e => {
+      setUploadStatus('Extracting CRE fields…', 70);
+      try {
+        const extracted = extractCREData(e.target.result);
+        applyExtractedData(extracted);
+        setUploadStatus('✅ Done — ' + extracted.extractedFields.length + ' fields extracted.', 100);
+        showExtractedTags(extracted.extractedFields);
+      } catch (err) { setUploadStatus('⚠ Error: ' + err.message, 0); }
+    };
+    reader.readAsText(file);
+  }
+}
+
+function parsePDF(file) {
+  if (typeof pdfjsLib === 'undefined') {
+    setUploadStatus('⚠ PDF.js not loaded. Try CSV/TXT.', 0);
+    return;
+  }
+  // Set worker source
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  // Use object URL to stream file — avoids loading entire large PDF into memory
+  const objectUrl = URL.createObjectURL(file);
+  const loadingTask = pdfjsLib.getDocument({
+    url: objectUrl,
+    disableRange: false,
+    rangeChunkSize: 65536,
+    disableStream: false,
+  });
+
+  loadingTask.promise.then(pdf => {
+    const total = pdf.numPages;
+    const texts = [];
+    let done = 0;
+
+    function getNextPage(n) {
+      pdf.getPage(n).then(page => {
+        return page.getTextContent();
+      }).then(tc => {
+        texts.push(tc.items.map(i => i.str).join(' '));
+        done++;
+        setUploadStatus('Parsing PDF page ' + done + '/' + total + '…', 20 + (done / total * 55));
+        if (done < total) {
+          getNextPage(n + 1);
+        } else {
+          URL.revokeObjectURL(objectUrl);
+          const fullText = texts.join('\n');
+          setUploadStatus('Extracting CRE fields…', 80);
+          try {
+            const extracted = extractCREData(fullText);
+            applyExtractedData(extracted);
+            setUploadStatus('✅ Done — ' + extracted.extractedFields.length + ' fields from ' + total + '-page PDF.', 100);
+            showExtractedTags(extracted.extractedFields);
+          } catch (err) { setUploadStatus('⚠ Extraction error: ' + err.message, 0); }
+        }
+      }).catch(err => {
+        URL.revokeObjectURL(objectUrl);
+        setUploadStatus('⚠ PDF page error: ' + err.message, 0);
+      });
+    }
+    getNextPage(1);
+  }).catch(err => {
+    URL.revokeObjectURL(objectUrl);
+    setUploadStatus('⚠ PDF error: ' + err.message, 0);
+  });
+}
+
+function parseExcel(arrayBuffer) {
+  if (typeof XLSX === 'undefined') {
+    setUploadStatus('⚠ SheetJS not loaded. Try CSV/TXT.', 0);
+    return;
+  }
+  const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+  const allText = [];
+  wb.SheetNames.forEach(name => {
+    allText.push('=== Sheet: ' + name + ' ===\n' + XLSX.utils.sheet_to_csv(wb.Sheets[name]));
+  });
+  const fullText = allText.join('\n\n');
+  setUploadStatus('Extracting from spreadsheet…', 60);
+  const extracted = extractCREData(fullText);
+
+  // Additional structured extraction from cell key-value pairs
+  wb.SheetNames.forEach(name => {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1 });
+    rows.forEach(row => {
+      if (!Array.isArray(row)) return;
+      const k = (row[0] || '').toString().toLowerCase().trim();
+      const v = row[1] != null ? row[1] : row[2];
+      if (!k || v == null) return;
+      const n = typeof v === 'number' ? v : parseFloat((v + '').replace(/[$,%]/g, ''));
+      if (isNaN(n)) return;
+      if (k.includes('purchase price') || k.includes('asking price')) extracted.purchasePrice = extracted.purchasePrice || n;
+      if (k === 'noi' || k.includes('net operating income')) extracted.noi = extracted.noi || n;
+      if (k.includes('cap rate')) { const p = n > 1 ? n : n * 100; if (p > 1 && p < 20) extracted.capRateGoing = extracted.capRateGoing || p; }
+      if (k.includes('units') || k === '# of units') { if (n > 0 && n < 50000) extracted.units = extracted.units || Math.round(n); }
+      if (k.includes('occupancy')) { const p2 = n > 1 ? n : n * 100; if (p2 > 30 && p2 <= 100) extracted.physicalOccupancy = extracted.physicalOccupancy || p2; }
+      if (k.includes('interest rate')) { const r = n > 1 ? n : n * 100; if (r > 0.5 && r < 30) extracted.interestRate = extracted.interestRate || r; }
+      if (k.includes('loan amount') || k.includes('mortgage')) { if (n > 10000) extracted.loanAmount = extracted.loanAmount || n; }
+    });
+  });
+
+  applyExtractedData(extracted);
+  setUploadStatus('✅ Done — ' + extracted.extractedFields.length + ' fields from spreadsheet.', 100);
+  showExtractedTags(extracted.extractedFields);
+}
+
+function extractCREData(text) {
+  const result = {
+    purchasePrice: null, noi: null, capRateGoing: null,
+    physicalOccupancy: null, interestRate: null, loanAmount: null,
+    gpr: null, totalOpEx: null, units: null,
+    extractedFields: [],
+  };
+
+  function parseNum(str) {
+    return parseFloat(str.replace(/[$,\s]/g, ''));
+  }
+
+  // Purchase price
+  const priceM = text.match(/(?:purchase\s+price|asking\s+price|sale\s+price)[^\d]*\$?([\d,]+(?:\.\d+)?\s*(?:million|M)?)/i);
+  if (priceM) {
+    let v = parseNum(priceM[1]);
+    if (/million|M/i.test(priceM[1])) v *= 1e6;
+    if (v > 100000) { result.purchasePrice = v; result.extractedFields.push('Purchase Price'); }
+  }
+
+  // NOI
+  const noiM = text.match(/(?:net\s+operating\s+income|NOI)[^\d]*\$?([\d,]+(?:\.\d+)?)/i);
+  if (noiM) {
+    const v = parseNum(noiM[1]);
+    if (v > 1000 && v < 1e9) { result.noi = v; result.extractedFields.push('NOI'); }
+  }
+
+  // Cap rate
+  const capM = text.match(/(?:cap(?:italization)?\s+rate|going[- ]in\s+cap)[^\d]*(\d{1,2}(?:\.\d+)?)\s*%/i);
+  if (capM) {
+    const v = parseFloat(capM[1]);
+    if (v > 1 && v < 20) { result.capRateGoing = v; result.extractedFields.push('Cap Rate'); }
+  }
+
+  // Occupancy
+  const occM = text.match(/(?:physical\s+occupancy|occupancy(?:\s+rate)?)[^\d]*(\d{2,3}(?:\.\d+)?)\s*%/i);
+  if (occM) {
+    const v = parseFloat(occM[1]);
+    if (v > 30 && v <= 100) { result.physicalOccupancy = v; result.extractedFields.push('Occupancy'); }
+  }
+
+  // Interest rate
+  const rateM = text.match(/(?:interest\s+rate|coupon)[^\d]*(\d{1,2}(?:\.\d+)?)\s*%/i);
+  if (rateM) {
+    const v = parseFloat(rateM[1]);
+    if (v > 0.5 && v < 30) { result.interestRate = v; result.extractedFields.push('Interest Rate'); }
+  }
+
+  // GPR
+  const gprM = text.match(/(?:gross\s+potential\s+rent(?:al)?(?:\s+income)?|GPR)[^\d]*\$?([\d,]+(?:\.\d+)?)/i);
+  if (gprM) {
+    const v = parseNum(gprM[1]);
+    if (v > 1000 && v < 1e9) { result.gpr = v; result.extractedFields.push('GPR'); }
+  }
+
+  // Total expenses
+  const opexM = text.match(/(?:total\s+(?:operating\s+)?expenses?|op(?:erating)?\s+expenses?)[^\d]*\$?([\d,]+(?:\.\d+)?)/i);
+  if (opexM) {
+    const v = parseNum(opexM[1]);
+    if (v > 1000 && v < 1e9) { result.totalOpEx = v; result.extractedFields.push('Operating Expenses'); }
+  }
+
+  // Units
+  const unitsM = text.match(/(\d{2,4})\s*(?:unit|apartment|residential)\s*(?:s|community)?/i);
+  if (unitsM) {
+    const v = parseInt(unitsM[1]);
+    if (v > 4 && v < 50000) { result.units = v; result.extractedFields.push('Units'); }
+  }
+
+  return result;
+}
+
+function applyExtractedData(extracted) {
+  if (extracted.purchasePrice && extracted.purchasePrice > 0) {
+    state.purchasePrice = extracted.purchasePrice;
+    const slider = document.getElementById('sl-price');
+    if (slider) slider.value = Math.max(+slider.min, Math.min(+slider.max, extracted.purchasePrice));
+    const inp = document.getElementById('sk-price-input');
+    if (inp) inp.value = extracted.purchasePrice;
+  }
+  if (extracted.capRateGoing && extracted.capRateGoing > 0) {
+    state.capRateInput = extracted.capRateGoing;
+    const slider = document.getElementById('sl-caprate');
+    if (slider) slider.value = Math.max(+slider.min, Math.min(+slider.max, extracted.capRateGoing));
+  }
+  if (extracted.physicalOccupancy && extracted.physicalOccupancy > 0) {
+    state.occupancy = extracted.physicalOccupancy;
+    const slider = document.getElementById('sl-occ');
+    if (slider) slider.value = Math.max(+slider.min, Math.min(+slider.max, extracted.physicalOccupancy));
+  }
+  if (extracted.interestRate && extracted.interestRate > 0) {
+    state.interestRate = extracted.interestRate;
+    const slider = document.getElementById('sl-rate');
+    if (slider) slider.value = Math.max(+slider.min, Math.min(+slider.max, extracted.interestRate));
+  }
+  if (extracted.gpr && extracted.gpr > 0)       state.gpr       = extracted.gpr;
+  if (extracted.totalOpEx && extracted.totalOpEx > 0) state.totalOpEx = extracted.totalOpEx;
+  if (Object.values(extracted).some(v => v !== null && !Array.isArray(v))) {
+    updateCalculations();
+  }
+}
+
+function showExtractedTags(fields) {
+  const container = document.getElementById('upload-fields');
+  if (!container) return;
+  container.innerHTML = fields.map(f => `<span class="upload-field-tag">${f}</span>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
    INITIALISATION
 ═══════════════════════════════════════════════════════════ */
 
