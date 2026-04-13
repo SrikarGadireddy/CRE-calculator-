@@ -1684,6 +1684,7 @@ function generateMemo() {
 
 var DOC_HISTORY_KEY = 'cre_doc_history';
 var DOC_HISTORY_MAX = 50;
+var DOC_HISTORY_FALLBACK = 5; // minimum items to keep when localStorage quota is exceeded
 var docHistory = []; // [{id, name, fileName, uploadedAt, data}]
 
 function loadDocHistory() {
@@ -1701,8 +1702,8 @@ function persistDocHistory() {
     localStorage.setItem(DOC_HISTORY_KEY, JSON.stringify(docHistory));
   } catch(e) {
     // If quota exceeded, drop the oldest items and try again
-    if (docHistory.length > 5) {
-      docHistory = docHistory.slice(docHistory.length - 5);
+    if (docHistory.length > DOC_HISTORY_FALLBACK) {
+      docHistory = docHistory.slice(docHistory.length - DOC_HISTORY_FALLBACK);
       try { localStorage.setItem(DOC_HISTORY_KEY, JSON.stringify(docHistory)); } catch(e2) {}
     }
   }
@@ -1778,9 +1779,12 @@ function addHistoryDocToCompare(id) {
 function loadHistoryDocAsCurrent(id) {
   var entry = docHistory.find(function(h) { return h.id === id; });
   if (!entry) return;
-  // Apply the stored data directly to dealData
-  Object.keys(dealData).forEach(function(k) {
-    dealData[k] = entry.data[k] !== undefined ? entry.data[k] : dealData[k];
+  // Reset all dealData fields to null/empty first, then apply stored values
+  Object.keys(dealData).forEach(function(k) { dealData[k] = null; });
+  dealData.unitMix = []; dealData.expenses = {}; dealData.renovation = {};
+  dealData.market = {}; dealData.esg = {}; dealData.extractedFields = []; dealData.missing = [];
+  Object.keys(entry.data).forEach(function(k) {
+    if (entry.data[k] !== undefined) dealData[k] = entry.data[k];
   });
   _currentFileName = entry.fileName || '';
   updateCalculations();
