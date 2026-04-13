@@ -12,799 +12,1789 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- Excel parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Motion One (vanilla JS framer-motion by same team) -->
+  <script src="https://cdn.jsdelivr.net/npm/motion@11.13.0/dist/motion.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       DESIGN TOKENS & RESET
+    ═══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:           #0d0f14;
+      --sidebar-bg:   #0a0c10;
+      --card-bg:      rgba(255,255,255,0.04);
+      --card-border:  rgba(255,255,255,0.08);
+      --indigo:       #6366f1;
+      --blue:         #3b82f6;
+      --emerald:      #10b981;
+      --amber:        #f59e0b;
+      --red:          #ef4444;
+      --text-1:       #f1f5f9;
+      --text-2:       #94a3b8;
+      --text-3:       #64748b;
+      --sidebar-w:    240px;
+      --radius-lg:    16px;
+      --radius-md:    12px;
+      --radius-sm:    8px;
+    }
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text-1);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       APP SHELL
+    ═══════════════════════════════════════════════════════════ */
+    .app-shell { width: 100%; height: 100vh; overflow: hidden; }
+    .view { display: none; width: 100%; height: 100vh; }
+    .view.active { display: flex; }
+
+    /* ═══════════════════════════════════════════════════════════
+       UPLOAD PAGE (VIEW 1)
+    ═══════════════════════════════════════════════════════════ */
+    #view-upload {
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Animated gradient orbs */
+    .upload-bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+    }
+    .upload-bg-orb--1 {
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 65%);
+      top: -250px; left: -200px;
+      animation: orb1 10s ease-in-out infinite;
+    }
+    .upload-bg-orb--2 {
+      width: 550px; height: 550px;
+      background: radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 65%);
+      bottom: -150px; right: -120px;
+      animation: orb2 13s ease-in-out infinite;
+    }
+    .upload-bg-orb--3 {
+      width: 450px; height: 450px;
+      background: radial-gradient(circle, rgba(59,130,246,0.14) 0%, transparent 65%);
+      top: 45%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation: orb3 9s ease-in-out infinite;
+    }
+    @keyframes orb1 { 0%,100%{transform:translateY(0) scale(1)}  50%{transform:translateY(-40px) scale(1.06)} }
+    @keyframes orb2 { 0%,100%{transform:translateY(0) scale(1)}  50%{transform:translateY(30px) scale(1.04)} }
+    @keyframes orb3 {
+      0%,100%{transform:translate(-50%,-50%) scale(1)}
+      50%{transform:translate(-50%,calc(-50% - 25px)) scale(1.08)}
+    }
+
+    .upload-page-inner {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      max-width: 620px;
+      width: 100%;
+      padding: 40px 24px;
+    }
+    .upload-brand {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 52px;
+    }
+    .brand-logo {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, var(--indigo), var(--blue));
+      border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 14px; color: white;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+    }
+    .brand-info { text-align: left; }
+    .brand-name { font-weight: 700; font-size: 15px; color: var(--text-1); letter-spacing: -0.01em; }
+    .brand-sub  { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+    .upload-hero-title {
+      font-size: clamp(28px, 4.5vw, 46px);
+      font-weight: 800;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+      color: var(--text-1);
+      margin-bottom: 18px;
+      background: linear-gradient(135deg, #f1f5f9 20%, #94a3b8 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .upload-hero-sub {
+      font-size: 15px; color: var(--text-2); line-height: 1.65;
+      margin-bottom: 40px; max-width: 500px;
+    }
+    .upload-glass-card {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--card-border);
+      border-radius: 22px;
+      padding: 32px;
+      backdrop-filter: blur(24px);
+      margin-bottom: 20px;
+    }
+    .upload-drop {
+      border: 2px dashed rgba(255,255,255,0.11);
+      border-radius: 14px;
+      padding: 52px 32px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 12px;
+    }
+    .upload-drop:hover, .upload-drop.drag-over {
+      border-color: var(--indigo);
+      background: rgba(99,102,241,0.07);
+    }
+    .upload-drop-icon { color: var(--indigo); opacity: 0.75; }
+    .upload-drop-label { font-size: 15px; font-weight: 600; color: var(--text-1); }
+    .upload-drop-sub   { font-size: 12px; color: var(--text-3); }
+    .upload-status { margin-top: 24px; }
+    .upload-status-bar {
+      width: 100%; height: 4px;
+      background: rgba(255,255,255,0.08); border-radius: 2px;
+      overflow: hidden; margin-bottom: 14px;
+    }
+    .upload-status-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--indigo), var(--blue));
+      border-radius: 2px; transition: width 0.4s ease; width: 0%;
+    }
+    .upload-file-info { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .upload-file-icon { font-size: 18px; }
+    .upload-file-name { font-size: 13px; color: var(--text-2); font-weight: 500; }
+    .upload-msg       { font-size: 13px; color: var(--text-3); }
+    .upload-fields    { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .upload-field-tag {
+      padding: 3px 9px; background: rgba(99,102,241,0.12);
+      border: 1px solid rgba(99,102,241,0.2); border-radius: 4px;
+      font-size: 11px; color: var(--indigo); font-weight: 500;
+    }
+    .upload-skip-btn {
+      background: none; border: 1px solid rgba(255,255,255,0.11);
+      color: var(--text-2); padding: 10px 22px; border-radius: var(--radius-sm);
+      font-size: 13px; cursor: pointer; font-family: inherit;
+      transition: all 0.2s; margin-bottom: 36px; font-weight: 500;
+    }
+    .upload-skip-btn:hover { border-color: var(--indigo); color: var(--indigo); }
+    .upload-features {
+      display: flex; gap: 28px; flex-wrap: wrap; justify-content: center;
+    }
+    .upload-feature {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--text-3);
+    }
+    .upload-feature-icon { font-size: 14px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       APP SHELL (VIEW 2)
+    ═══════════════════════════════════════════════════════════ */
+    #view-app { overflow: hidden; }
+    #view-app.active { display: flex; }
+
+    /* ─── SIDEBAR ─── */
+    .sidebar {
+      width: var(--sidebar-w); min-width: var(--sidebar-w);
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--card-border);
+      height: 100vh; overflow-y: auto;
+      display: flex; flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar::-webkit-scrollbar { width: 3px; }
+    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+    .sidebar-brand {
+      padding: 18px 16px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--card-border);
+      flex-shrink: 0;
+    }
+    .sidebar-brand .brand-name { font-size: 13px; font-weight: 700; }
+    .sidebar-brand .brand-sub  { font-size: 10px; color: var(--text-3); }
+
+    .sidebar-file-indicator {
+      margin: 12px 12px 0;
+      padding: 10px 12px;
+      background: rgba(99,102,241,0.08);
+      border: 1px solid rgba(99,102,241,0.16);
+      border-radius: 10px;
+      display: none;
+      gap: 8px;
+    }
+    .sfi-body  { flex: 1; min-width: 0; }
+    .sfi-icon  { font-size: 14px; flex-shrink: 0; margin-top: 2px; }
+    .sfi-name  { font-size: 11px; color: var(--text-2); word-break: break-all; line-height: 1.4; font-weight: 500; margin-bottom: 8px; }
+    .sfi-dc-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .sfi-dc-pct   { font-weight: 700; color: var(--emerald); }
+    .sfi-dc-track { width: 100%; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+    .sfi-dc-fill  { height: 100%; background: linear-gradient(90deg, var(--emerald), #34d399); border-radius: 2px; transition: width 0.4s; }
+
+    .sidebar-section-label {
+      padding: 18px 16px 6px;
+      font-size: 10px; font-weight: 600; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: 0.1em; flex-shrink: 0;
+    }
+    .sidebar-nav { padding: 0 8px; }
+    .nav-link {
+      width: 100%; display: flex; align-items: center; gap: 9px;
+      padding: 8px 10px; border: none; background: none;
+      border-radius: var(--radius-sm); cursor: pointer;
+      font-family: inherit; font-size: 13px; font-weight: 500;
+      color: var(--text-3); transition: all 0.15s; text-align: left;
+      margin-bottom: 2px;
+    }
+    .nav-link:hover  { background: rgba(255,255,255,0.05); color: var(--text-2); }
+    .nav-link.active { background: rgba(99,102,241,0.12); color: var(--indigo); }
+    .nav-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.6; }
+    .nav-icon svg { width: 16px; height: 16px; display: block; }
+    .nav-link.active .nav-icon { opacity: 1; }
+    .nav-label { line-height: 1; }
+
+    .sidebar-bottom { padding: 14px 12px; border-top: 1px solid var(--card-border); flex-shrink: 0; }
+    .sidebar-upload-btn {
+      width: 100%; padding: 9px 14px;
+      background: rgba(99,102,241,0.09); border: 1px solid rgba(99,102,241,0.22);
+      border-radius: var(--radius-sm); color: var(--indigo);
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .sidebar-upload-btn:hover { background: rgba(99,102,241,0.18); border-color: var(--indigo); }
+
+    /* ─── MAIN CONTENT ─── */
+    .main-content {
+      flex: 1; overflow-y: auto; background: var(--bg); height: 100vh;
+    }
+    .main-content::-webkit-scrollbar { width: 5px; }
+    .main-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); border-radius: 3px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       PAGE LAYOUT
+    ═══════════════════════════════════════════════════════════ */
+    .page { display: none; padding: 36px 44px 48px; min-height: 100%; }
+    .page.active { display: block; }
+
+    .page-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 32px; padding-bottom: 24px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .page-header-left  { flex: 1; }
+    .page-header-right { flex-shrink: 0; margin-left: 24px; }
+    .page-breadcrumb {
+      font-size: 10px; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+    }
+    .page-title { font-size: 26px; font-weight: 800; color: var(--text-1); letter-spacing: -0.02em; line-height: 1.15; }
+    .page-meta  { font-size: 13px; color: var(--text-2); margin-top: 5px; }
+
+    .header-badge {
+      display: flex; align-items: center; gap: 7px;
+      padding: 7px 14px;
+      background: rgba(16,185,129,0.09); border: 1px solid rgba(16,185,129,0.2);
+      border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--emerald);
+    }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .badge-dot--green { background: var(--emerald); box-shadow: 0 0 6px var(--emerald); animation: pulseDot 2s ease-in-out infinite; }
+    @keyframes pulseDot { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    /* ═══════════════════════════════════════════════════════════
+       KPI COMPONENTS
+    ═══════════════════════════════════════════════════════════ */
+    .kpi-row {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: 16px; margin-bottom: 18px;
+    }
+    .kpi-card {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg); padding: 22px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .kpi-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.13); }
+    .kpi-card--primary {
+      background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.03) 100%);
+      border-color: rgba(16,185,129,0.22);
+    }
+    .kpi-card-label {
+      font-size: 10px; font-weight: 600; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px;
+    }
+    .kpi-card-value  { font-size: 30px; font-weight: 800; color: var(--text-1); line-height: 1; margin-bottom: 7px; }
+    .kpi-card--primary .kpi-card-value { color: var(--emerald); }
+    .kpi-card-bench  { font-size: 11px; color: var(--text-3); margin-bottom: 5px; }
+    .kpi-card-trend  { font-size: 11px; font-weight: 600; color: var(--emerald); }
+
+    .kpi-chips-bar {
+      display: flex; gap: 10px; overflow-x: auto;
+      padding-bottom: 4px; margin-bottom: 26px; scrollbar-width: none;
+    }
+    .kpi-chips-bar::-webkit-scrollbar { display: none; }
+    .kpi-chip {
+      display: flex; flex-direction: column; gap: 4px;
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: 10px; padding: 10px 16px; flex-shrink: 0; min-width: 108px;
+    }
+    .chip-label { font-size: 10px; color: var(--text-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+    .chip-val   { font-size: 14px; font-weight: 700; color: var(--text-1); }
+
+    .deal-summary-card {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg); padding: 24px; margin-bottom: 28px;
+    }
+    .deal-summary-label {
+      font-size: 10px; font-weight: 600; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 12px;
+    }
+    .deal-summary-text { font-size: 14px; color: var(--text-2); line-height: 1.75; }
+    .deal-summary-text strong { color: var(--text-1); font-weight: 600; }
+
+    /* ═══════════════════════════════════════════════════════════
+       SECTION CARD
+    ═══════════════════════════════════════════════════════════ */
+    .section-card {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg); padding: 26px; margin-bottom: 22px;
+    }
+    .section-title { font-size: 15px; font-weight: 700; color: var(--text-1); margin-bottom: 4px; }
+    .section-sub   { font-size: 13px; color: var(--text-3); margin-bottom: 20px; line-height: 1.5; }
+
+    /* ═══════════════════════════════════════════════════════════
+       SLIDERS
+    ═══════════════════════════════════════════════════════════ */
+    .sliders-grid {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 16px; margin-bottom: 26px;
+    }
+    .slider-card {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 16px;
+    }
+    .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .slider-label  { font-size: 12px; color: var(--text-2); font-weight: 500; }
+    .slider-value  { font-size: 14px; font-weight: 700; color: var(--indigo); }
+    .styled-slider {
+      width: 100%; -webkit-appearance: none;
+      height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,0.11); outline: none; margin-bottom: 6px; cursor: pointer;
+    }
+    .styled-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px;
+      border-radius: 50%; background: var(--indigo); cursor: pointer;
+      box-shadow: 0 0 10px rgba(99,102,241,0.5);
+    }
+    .slider-bounds { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-3); }
+
+    /* ═══════════════════════════════════════════════════════════
+       CALC OUTPUTS
+    ═══════════════════════════════════════════════════════════ */
+    .calc-outputs {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: 14px; margin-bottom: 22px;
+    }
+    .calc-output-card {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);
+      border-radius: var(--radius-md); padding: 16px;
+      transition: border-color 0.3s, background 0.3s;
+    }
+    .calc-output-card.pulse { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.06); }
+    .co-label     { font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .co-value     { font-size: 22px; font-weight: 800; color: var(--text-1); margin-bottom: 4px; }
+    .co-indicator { font-size: 11px; color: var(--text-3); }
+
+    .kpi-edit-strip {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.14);
+      border-radius: 10px; padding: 12px 18px; margin-bottom: 22px; flex-wrap: wrap;
+    }
+    .kpi-edit-label { font-size: 13px; color: var(--text-2); font-weight: 500; }
+    .kpi-dollar     { font-size: 14px; color: var(--text-3); }
+    .kpi-edit-strip input {
+      background: rgba(255,255,255,0.06); border: 1px solid var(--card-border);
+      color: var(--text-1); padding: 7px 11px; border-radius: 7px;
+      font-family: inherit; font-size: 14px; font-weight: 600; width: 150px;
+    }
+    .kpi-edit-strip input:focus { outline: none; border-color: var(--indigo); }
+    .kpi-edit-hint { font-size: 11px; color: var(--text-3); }
+
+    /* ═══════════════════════════════════════════════════════════
+       SCENARIO TABLE
+    ═══════════════════════════════════════════════════════════ */
+    .scenario-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+    }
+    .scenario-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ═══════════════════════════════════════════════════════════
+       BUTTONS
+    ═══════════════════════════════════════════════════════════ */
+    .btn-primary {
+      padding: 8px 18px; background: var(--indigo); color: white;
+      border: none; border-radius: var(--radius-sm); font-family: inherit;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary:hover { background: #5254e4; transform: translateY(-1px); }
+    .btn-secondary {
+      padding: 8px 14px; background: rgba(255,255,255,0.05); color: var(--text-2);
+      border: 1px solid var(--card-border); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.14); }
+
+    /* ═══════════════════════════════════════════════════════════
+       TABLES
+    ═══════════════════════════════════════════════════════════ */
+    .table-wrap { overflow-x: auto; }
+    .data-table, .scenario-table, .milestone-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .data-table th, .scenario-table th, .milestone-table th {
+      text-align: left; padding: 10px 14px;
+      font-size: 11px; font-weight: 600; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: 0.07em;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .data-table td, .scenario-table td, .milestone-table td {
+      padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text-2); vertical-align: middle;
+    }
+    .data-table tr:last-child td, .scenario-table tr:last-child td, .milestone-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td, .scenario-table tr:hover td, .milestone-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .data-table .total-row td { font-weight: 700; color: var(--text-1); border-top: 1px solid var(--card-border); border-bottom: none; }
+    .data-table .sub-row td { padding-left: 28px; font-size: 12px; color: var(--text-3); }
+    .base-row td { background: rgba(99,102,241,0.04); }
+
+    .sensitivity-wrap { overflow-x: auto; }
+    .sensitivity-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .sensitivity-table th { padding: 8px 12px; font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; text-align: center; border: 1px solid var(--card-border); background: rgba(255,255,255,0.02); }
+    .sensitivity-table td { padding: 8px 12px; text-align: center; border: 1px solid rgba(255,255,255,0.04); font-weight: 600; font-size: 12px; }
+    .val-high { color: var(--emerald); background: rgba(16,185,129,0.09); }
+    .val-mid  { color: var(--amber);   background: rgba(245,158,11,0.09); }
+    .val-low  { color: var(--text-3); }
+
+    /* ═══════════════════════════════════════════════════════════
+       METRICS GRID (generic reusable)
+    ═══════════════════════════════════════════════════════════ */
+    .metrics-grid {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 14px; margin-bottom: 22px;
+    }
+    .metric-card {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: var(--radius-md); padding: 18px;
+    }
+    .metric-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+    .metric-value { font-size: 22px; font-weight: 800; color: var(--text-1); margin-bottom: 3px; }
+    .metric-sub   { font-size: 11px; color: var(--text-3); }
+    .metric-card--accent { background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(99,102,241,0.03)); border-color: rgba(99,102,241,0.2); }
+    .metric-card--accent .metric-value { color: var(--indigo); }
+
+    .metrics-grid-2 {
+      display: grid; grid-template-columns: repeat(2,1fr);
+      gap: 14px; margin-bottom: 22px;
+    }
+    .metrics-grid-4 {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: 14px; margin-bottom: 22px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       ALERT ITEMS
+    ═══════════════════════════════════════════════════════════ */
+    .alert-list { display: flex; flex-direction: column; gap: 10px; }
+    .alert-item {
+      display: flex; gap: 12px; padding: 14px 16px;
+      border-radius: 10px; border: 1px solid; align-items: flex-start;
+    }
+    .alert-item.critical { background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.2); }
+    .alert-item.warning  { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.2); }
+    .alert-item.clear    { background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.2); }
+    .alert-badge  { font-size: 11px; font-weight: 700; flex-shrink: 0; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+    .badge-critical { background: rgba(239,68,68,0.14); color: #f87171; }
+    .badge-warning  { background: rgba(245,158,11,0.14); color: #fbbf24; }
+    .badge-clear    { background: rgba(16,185,129,0.14); color: #34d399; }
+    .alert-content  { flex: 1; }
+    .alert-title    { font-size: 13px; font-weight: 600; color: var(--text-1); margin-bottom: 3px; }
+    .alert-desc     { font-size: 12px; color: var(--text-2); line-height: 1.55; }
+
+    /* ═══════════════════════════════════════════════════════════
+       CHECKLIST
+    ═══════════════════════════════════════════════════════════ */
+    .checklist-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+    .check-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 12px; background: rgba(255,255,255,0.025);
+      border: 1px solid var(--card-border); border-radius: var(--radius-sm);
+      font-size: 12px; color: var(--text-2); cursor: pointer; line-height: 1.4;
+    }
+    .check-item.checked { color: var(--text-1); border-color: rgba(16,185,129,0.22); background: rgba(16,185,129,0.05); }
+    .check-item input { accent-color: var(--emerald); flex-shrink: 0; }
+
+    /* ═══════════════════════════════════════════════════════════
+       ACTION LIST & MILESTONES
+    ═══════════════════════════════════════════════════════════ */
+    .action-list { padding-left: 20px; }
+    .action-list li { font-size: 13px; color: var(--text-2); line-height: 1.7; margin-bottom: 10px; }
+    .action-list li strong { color: var(--text-1); }
+
+    .badge-status { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-success  { background: rgba(16,185,129,0.14); color: #34d399; }
+    .badge-progress { background: rgba(59,130,246,0.14); color: #60a5fa; }
+    .badge-pending  { background: rgba(255,255,255,0.07); color: var(--text-3); }
+
+    /* ═══════════════════════════════════════════════════════════
+       IC MEMO SECTION (button strip)
+    ═══════════════════════════════════════════════════════════ */
+    .ic-memo-section {
+      background: linear-gradient(135deg, rgba(99,102,241,0.09), rgba(59,130,246,0.05));
+      border: 1px solid rgba(99,102,241,0.2); border-radius: var(--radius-lg);
+      padding: 28px; margin-bottom: 22px;
+    }
+    .ic-memo-section-inner { display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .ic-memo-section-title { font-size: 16px; font-weight: 700; color: var(--text-1); margin-bottom: 6px; }
+    .ic-memo-section-desc  { font-size: 13px; color: var(--text-2); line-height: 1.55; max-width: 540px; }
+    .btn-ic-memo {
+      padding: 12px 26px;
+      background: linear-gradient(135deg, var(--indigo), var(--blue));
+      color: white; border: none; border-radius: 10px;
+      font-family: inherit; font-size: 14px; font-weight: 700;
+      cursor: pointer; white-space: nowrap; transition: all 0.2s;
+      box-shadow: 0 4px 18px rgba(99,102,241,0.32);
+    }
+    .btn-ic-memo:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(99,102,241,0.44); }
+
+    /* ═══════════════════════════════════════════════════════════
+       MODAL
+    ═══════════════════════════════════════════════════════════ */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.82); backdrop-filter: blur(7px);
+      z-index: 1000; display: none;
+      align-items: flex-start; justify-content: center;
+      overflow-y: auto; padding: 40px 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-container {
+      background: #0f1117; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 22px; width: 100%; max-width: 920px;
+      display: flex; flex-direction: column; position: relative;
+    }
+    .modal-header { padding: 26px 32px; border-bottom: 1px solid var(--card-border); }
+    .modal-header h2 { font-size: 18px; font-weight: 800; color: var(--text-1); margin-bottom: 3px; }
+    .modal-header-sub { font-size: 13px; color: var(--text-3); }
+    .modal-close {
+      position: absolute; top: 22px; right: 22px;
+      background: rgba(255,255,255,0.08); border: none; color: var(--text-2);
+      width: 32px; height: 32px; border-radius: 50%; font-size: 14px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+    }
+    .modal-close:hover { background: rgba(255,255,255,0.15); color: white; }
+    .modal-body { padding: 28px 32px; overflow-y: auto; flex: 1; color: var(--text-2); font-size: 13px; line-height: 1.7; }
+    .modal-footer { padding: 16px 32px; border-top: 1px solid var(--card-border); display: flex; justify-content: flex-end; gap: 10px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       CHAT
+    ═══════════════════════════════════════════════════════════ */
+    .api-key-card {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg); padding: 22px; margin-bottom: 20px;
+    }
+    .api-key-label { font-size: 13px; font-weight: 600; color: var(--text-1); margin-bottom: 12px; }
+    .api-optional  { font-size: 11px; color: var(--text-3); font-weight: 400; }
+    .api-key-row   { display: flex; gap: 10px; margin-bottom: 8px; }
+    .api-key-row input {
+      flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);
+      color: var(--text-1); padding: 9px 14px; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 13px;
+    }
+    .api-key-row input:focus { outline: none; border-color: var(--indigo); }
+    .api-key-note  { font-size: 11px; color: var(--text-3); line-height: 1.5; }
+
+    .quick-questions { margin-bottom: 20px; }
+    .qq-title { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 10px; }
+    .qq-grid  { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+    .qq-btn {
+      padding: 10px 12px; background: var(--card-bg);
+      border: 1px solid var(--card-border); color: var(--text-2);
+      border-radius: var(--radius-sm); font-family: inherit; font-size: 12px;
+      cursor: pointer; text-align: left; transition: all 0.2s; line-height: 1.45;
+    }
+    .qq-btn:hover { border-color: var(--indigo); color: var(--text-1); background: rgba(99,102,241,0.07); }
+
+    .chat-container {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg); overflow: hidden;
+      display: flex; flex-direction: column; height: 500px;
+    }
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 22px;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+    .chat-messages::-webkit-scrollbar { width: 3px; }
+    .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+    .chat-msg       { display: flex; gap: 10px; align-items: flex-start; }
+    .chat-msg.user  { flex-direction: row-reverse; }
+    .chat-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .chat-msg.user .chat-avatar { background: rgba(99,102,241,0.15); }
+    .chat-bubble {
+      max-width: 76%; padding: 12px 16px; border-radius: 14px;
+      font-size: 13px; line-height: 1.65;
+      background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); color: var(--text-2);
+    }
+    .chat-msg.user .chat-bubble {
+      background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.22); color: var(--text-1);
+    }
+    .chat-loading { display: flex; gap: 5px; align-items: center; }
+    .chat-loading-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--text-3);
+      animation: chatDot 1.2s ease-in-out infinite;
+    }
+    .chat-loading-dot:nth-child(2) { animation-delay: 0.2s; }
+    .chat-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes chatDot { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+    .chat-input-wrap {
+      display: flex; gap: 10px; padding: 16px;
+      border-top: 1px solid var(--card-border);
+    }
+    .chat-input-wrap input {
+      flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--card-border);
+      color: var(--text-1); padding: 10px 14px; border-radius: 10px;
+      font-family: inherit; font-size: 13px;
+    }
+    .chat-input-wrap input:focus { outline: none; border-color: var(--indigo); }
+
+    /* ═══════════════════════════════════════════════════════════
+       RISK GRID
+    ═══════════════════════════════════════════════════════════ */
+    .risk-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-bottom: 22px; }
+    .risk-item { padding: 16px; border-radius: 10px; border: 1px solid; }
+    .risk-item.risk-high   { background: rgba(239,68,68,0.05);  border-color: rgba(239,68,68,0.15); }
+    .risk-item.risk-medium { background: rgba(245,158,11,0.05); border-color: rgba(245,158,11,0.15); }
+    .risk-item.risk-low    { background: rgba(16,185,129,0.05); border-color: rgba(16,185,129,0.15); }
+    .risk-label      { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+    .risk-label.high   { color: #f87171; }
+    .risk-label.medium { color: #fbbf24; }
+    .risk-label.low    { color: #34d399; }
+    .risk-desc { font-size: 12px; color: var(--text-2); line-height: 1.55; }
+
+    /* ═══════════════════════════════════════════════════════════
+       MARKET INDICATORS
+    ═══════════════════════════════════════════════════════════ */
+    .market-indicators { display: grid; grid-template-columns: repeat(4,1fr); gap: 13px; margin-bottom: 22px; }
+    .msa-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 16px; }
+    .msa-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+    .msa-value { font-size: 22px; font-weight: 800; color: var(--text-1); margin-bottom: 3px; }
+    .msa-trend { font-size: 11px; font-weight: 500; color: var(--emerald); }
+
+    /* ═══════════════════════════════════════════════════════════
+       LEASE EXPIRATION BARS
+    ═══════════════════════════════════════════════════════════ */
+    .lease-exp-grid { display: flex; flex-direction: column; gap: 9px; }
+    .lease-exp-row  { display: flex; align-items: center; gap: 12px; }
+    .lease-exp-month { font-size: 12px; color: var(--text-3); width: 32px; flex-shrink: 0; }
+    .lease-exp-bar-wrap { flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+    .lease-exp-bar-fill { height: 100%; background: linear-gradient(90deg, var(--indigo), var(--blue)); border-radius: 4px; transition: width 0.6s ease; }
+    .lease-exp-pct { font-size: 12px; color: var(--text-2); font-weight: 600; width: 38px; text-align: right; flex-shrink: 0; }
+
+    /* ═══════════════════════════════════════════════════════════
+       ESG
+    ═══════════════════════════════════════════════════════════ */
+    .esg-opp-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 22px; }
+    .esg-opp-card {
+      background: rgba(16,185,129,0.05); border: 1px solid rgba(16,185,129,0.13);
+      border-radius: var(--radius-md); padding: 20px;
+    }
+    .esg-opp-icon  { font-size: 26px; margin-bottom: 12px; }
+    .esg-opp-title { font-size: 14px; font-weight: 700; color: var(--text-1); margin-bottom: 7px; }
+    .esg-opp-desc  { font-size: 12px; color: var(--text-2); line-height: 1.55; }
+
+    /* ═══════════════════════════════════════════════════════════
+       RETURN ATTRIBUTION
+    ═══════════════════════════════════════════════════════════ */
+    .ret-attr-row    { margin-bottom: 14px; }
+    .ret-attr-label  { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); margin-bottom: 5px; }
+    .ret-attr-track  { height: 20px; background: rgba(255,255,255,0.05); border-radius: 5px; overflow: hidden; }
+    .ret-attr-fill   { height: 100%; border-radius: 5px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 11px; font-weight: 700; color: white; }
+    .ret-attr-fill--cf   { background: linear-gradient(90deg, var(--blue), var(--indigo)); }
+    .ret-attr-fill--appr { background: linear-gradient(90deg, var(--emerald), #34d399); }
+
+    /* ═══════════════════════════════════════════════════════════
+       IC MEMO CONTENT STYLES
+    ═══════════════════════════════════════════════════════════ */
+    .ic-memo h2 { font-size: 15px; font-weight: 700; color: var(--text-1); margin: 22px 0 10px; border-bottom: 1px solid var(--card-border); padding-bottom: 5px; }
+    .ic-memo h3 { font-size: 14px; font-weight: 600; color: var(--text-2); margin: 14px 0 7px; }
+    .ic-memo p  { margin-bottom: 10px; }
+    .ic-memo .memo-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 12px; }
+    .ic-memo .memo-table th { text-align: left; padding: 7px 11px; background: rgba(255,255,255,0.04); color: var(--text-3); border: 1px solid var(--card-border); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .ic-memo .memo-table td { padding: 7px 11px; border: 1px solid rgba(255,255,255,0.05); color: var(--text-2); }
+    .ic-memo .ic-memo-header-block { text-align: center; margin-bottom: 22px; padding: 24px; background: linear-gradient(135deg, rgba(99,102,241,0.09), rgba(59,130,246,0.05)); border-radius: 12px; border: 1px solid rgba(99,102,241,0.16); }
+    .ic-memo .ic-memo-headline { font-size: 19px; font-weight: 800; color: var(--text-1); margin-bottom: 5px; letter-spacing: -0.01em; }
+    .ic-memo .ic-memo-sub { font-size: 14px; color: var(--text-2); margin-bottom: 8px; }
+    .ic-memo .ic-memo-date { font-size: 12px; color: var(--text-3); margin-bottom: 6px; }
+    .ic-memo .ic-memo-confidential { font-size: 11px; font-weight: 600; color: var(--amber); text-transform: uppercase; letter-spacing: 0.1em; }
+    .ic-memo .risk-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin: 12px 0; }
+    .ic-memo .verdict-box { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 12px; padding: 20px; text-align: center; margin-top: 18px; }
+    .ic-memo .verdict-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+    .ic-memo .verdict-value { font-size: 22px; font-weight: 800; color: var(--emerald); margin-bottom: 6px; }
+    .ic-memo .verdict-sub   { font-size: 12px; color: var(--text-2); }
+    .ic-memo .rec-box       { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.15); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .ic-memo .rec-title     { font-size: 14px; font-weight: 700; color: var(--emerald); margin-bottom: 10px; }
+    .ic-memo .rec-items     { padding-left: 18px; }
+    .ic-memo .rec-items li  { font-size: 12px; color: var(--text-2); margin-bottom: 6px; line-height: 1.55; }
+
+    /* ═══════════════════════════════════════════════════════════
+       PRINT
+    ═══════════════════════════════════════════════════════════ */
+    @media print {
+      .modal-overlay { position: relative !important; display: block !important; background: white !important; padding: 0 !important; }
+      .modal-container { border: none !important; background: white !important; color: black !important; max-height: none !important; }
+      .modal-footer, .modal-close { display: none !important; }
+      .modal-body { color: black !important; overflow: visible !important; max-height: none !important; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════════ */
+    @media (max-width: 1200px) {
+      .page { padding: 28px 28px 40px; }
+      .kpi-row        { grid-template-columns: repeat(2,1fr); }
+      .calc-outputs   { grid-template-columns: repeat(2,1fr); }
+      .sliders-grid   { grid-template-columns: repeat(2,1fr); }
+      .checklist-grid { grid-template-columns: repeat(2,1fr); }
+      .metrics-grid-4 { grid-template-columns: repeat(2,1fr); }
+      .market-indicators { grid-template-columns: repeat(2,1fr); }
+      .qq-grid        { grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width: 860px) {
+      .sidebar { display: none; }
+      .page    { padding: 20px 18px 36px; }
+    }
+    @media (max-width: 600px) {
+      .metrics-grid   { grid-template-columns: repeat(2,1fr); }
+      .metrics-grid-2 { grid-template-columns: 1fr; }
+      .esg-opp-grid   { grid-template-columns: 1fr; }
+      .risk-grid      { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-<div class="app-container">
+<div class="app-shell">
 
-  <!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
-  <aside class="sidebar">
+  <!-- VIEW 1: UPLOAD LANDING (full screen, no sidebar) -->
+  <div class="view active" id="view-upload">
+    <div class="upload-bg-orb upload-bg-orb--1"></div>
+    <div class="upload-bg-orb upload-bg-orb--2"></div>
+    <div class="upload-bg-orb upload-bg-orb--3"></div>
 
-    <div class="sidebar-brand">
-      <div class="brand-logo">KC</div>
-      <div class="brand-info">
-        <div class="brand-name">Kingswood Cove</div>
-        <div class="brand-sub">Austin TX MSA &nbsp;·&nbsp; 312 Units</div>
+    <div class="upload-page-inner">
+      <header class="upload-brand">
+        <div class="brand-logo">KC</div>
+        <div class="brand-info">
+          <div class="brand-name">Kingswood Cove</div>
+          <div class="brand-sub">CRE Investment Platform</div>
+        </div>
+      </header>
+
+      <h1 class="upload-hero-title">Institutional&#8209;grade CRE&nbsp;analysis in&nbsp;seconds</h1>
+      <p class="upload-hero-sub">Upload an Offering Memorandum, T-12, or Rent Roll. Our engine extracts every metric automatically.</p>
+
+      <div class="upload-glass-card">
+        <div class="upload-drop" id="upload-drop"
+             onclick="document.getElementById('file-input').click()"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="handleDrop(event)">
+          <div class="upload-drop-icon">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+              <rect x="4" y="18" width="48" height="34" rx="6" stroke="currentColor" stroke-width="2.5"/>
+              <path d="M28 10v24m0 0l-9-9m9 9l9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="upload-drop-label">Drop files here or click to browse</div>
+          <div class="upload-drop-sub">PDF (any size) &middot; Excel (.xlsx/.xls) &middot; CSV &middot; TXT</div>
+        </div>
+        <input type="file" id="file-input" accept=".pdf,.xlsx,.xls,.csv,.txt,.text"
+               style="display:none" onchange="handleFileSelect(event)">
+        <div class="upload-status" id="upload-status" style="display:none">
+          <div class="upload-status-bar"><div class="upload-status-fill" id="upload-status-fill"></div></div>
+          <div class="upload-file-info">
+            <span class="upload-file-icon" id="upload-file-icon">&#128196;</span>
+            <span class="upload-file-name" id="upload-file-name"></span>
+          </div>
+          <div class="upload-msg" id="upload-msg">Processing&hellip;</div>
+          <div class="upload-fields" id="upload-fields"></div>
+        </div>
+      </div>
+
+      <button class="upload-skip-btn" onclick="navigateTo('dashboard')">Skip to Dashboard &rarr;</button>
+
+      <div class="upload-features">
+        <div class="upload-feature"><span class="upload-feature-icon">&#9889;</span><span>Instant extraction</span></div>
+        <div class="upload-feature"><span class="upload-feature-icon">&#128274;</span><span>In-browser</span></div>
+        <div class="upload-feature"><span class="upload-feature-icon">&#128202;</span><span>Live modeling</span></div>
       </div>
     </div>
+  </div><!-- /view-upload -->
 
-    <div class="data-completeness-bar">
-      <div class="dc-header">
-        <span class="dc-label">Data Completeness</span>
-        <span class="dc-value" id="dc-pct">62%</span>
+  <!-- VIEW 2: APP SHELL (sidebar + pages) -->
+  <div class="view" id="view-app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">KC</div>
+        <div class="brand-info">
+          <div class="brand-name">Kingswood Cove</div>
+          <div class="brand-sub">Austin TX &middot; 312 Units</div>
+        </div>
       </div>
-      <div class="dc-track"><div class="dc-fill" id="dc-fill-bar" style="width:62%"></div></div>
-    </div>
 
-    <!-- ── Document Upload Zone ── -->
-    <div class="upload-zone">
-      <div class="upload-drop" id="upload-drop"
-           onclick="document.getElementById('file-input').click()"
-           ondragover="event.preventDefault();this.classList.add('drag-over')"
-           ondragleave="this.classList.remove('drag-over')"
-           ondrop="handleDrop(event)">
-        <div class="upload-drop-icon">📂</div>
-        <div class="upload-drop-label">Upload OM / T12 / Rent Roll</div>
-        <div class="upload-drop-sub">PDF (any size), Excel (.xlsx/.xls), CSV, or TXT</div>
+      <!-- File indicator (shown after upload) -->
+      <div class="sidebar-file-indicator" id="sidebar-file-indicator">
+        <span class="sfi-icon">&#128196;</span>
+        <div class="sfi-body">
+          <div class="sfi-name" id="sidebar-file-name">&mdash;</div>
+          <div class="sfi-dc-label">
+            <span>Data Completeness</span>
+            <span class="sfi-dc-pct" id="dc-pct">62%</span>
+          </div>
+          <div class="sfi-dc-track"><div class="sfi-dc-fill" id="dc-fill-bar" style="width:62%"></div></div>
+        </div>
       </div>
-      <input type="file" id="file-input" accept=".pdf,.xlsx,.xls,.csv,.txt,.text"
-             style="display:none" onchange="handleFileSelect(event)">
-    </div>
-    <div class="upload-status" id="upload-status" style="display:none">
-      <div class="upload-status-bar"><div class="upload-status-fill" id="upload-status-fill"></div></div>
-      <div class="upload-file-info">
-        <span class="upload-file-icon" id="upload-file-icon">📄</span>
-        <span class="upload-file-name" id="upload-file-name"></span>
+
+      <div class="sidebar-section-label">ANALYSIS</div>
+      <nav class="sidebar-nav">
+        <button class="nav-link active" data-page="dashboard">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+          <span class="nav-label">Dashboard</span>
+        </button>
+        <button class="nav-link" data-page="returns">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
+          <span class="nav-label">Returns</span>
+        </button>
+        <button class="nav-link" data-page="operations">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+          <span class="nav-label">Operations</span>
+        </button>
+        <button class="nav-link" data-page="leasing">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+          <span class="nav-label">Leasing</span>
+        </button>
+        <button class="nav-link" data-page="uniteconomics">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>
+          <span class="nav-label">Unit Economics</span>
+        </button>
+        <button class="nav-link" data-page="debt">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg></span>
+          <span class="nav-label">Debt Structure</span>
+        </button>
+        <button class="nav-link" data-page="valuation">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg></span>
+          <span class="nav-label">Valuation &amp; Exit</span>
+        </button>
+        <button class="nav-link" data-page="market">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></span>
+          <span class="nav-label">Market Analysis</span>
+        </button>
+        <button class="nav-link" data-page="esg">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 8C8 10 5.9 16.17 3.82 19.37a1 1 0 001.69.93l.95-1.17A6 6 0 0112 21c5.52 0 10-4.48 10-10 0-2.5-.92-4.78-2.43-6.53A12 12 0 0117 8z"/></svg></span>
+          <span class="nav-label">ESG</span>
+        </button>
+        <button class="nav-link" data-page="diligence">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>
+          <span class="nav-label">Due Diligence</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-section-label">AI TOOLS</div>
+      <nav class="sidebar-nav">
+        <button class="nav-link" data-page="ask">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>
+          <span class="nav-label">Ask Document</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="sidebar-upload-btn" onclick="navigateTo('upload')">&#65291; New Upload</button>
       </div>
-      <div class="upload-msg" id="upload-msg">Processing…</div>
-      <div class="upload-fields" id="upload-fields"></div>
-    </div>
+    </aside><!-- /sidebar -->
 
-    <!-- Sidebar Tab Nav (3×3 grid) -->
-    <nav class="sidebar-tabs">
-      <button class="stab active"  data-stab="returns">    <span class="stab-icon">📈</span><span class="stab-label">Returns</span>    </button>
-      <button class="stab"         data-stab="operations"> <span class="stab-icon">⚙️</span><span class="stab-label">Operations</span></button>
-      <button class="stab"         data-stab="leasing">    <span class="stab-icon">🏠</span><span class="stab-label">Leasing</span>    </button>
-      <button class="stab"         data-stab="uniteco">    <span class="stab-icon">🔨</span><span class="stab-label">Unit Econ</span>  </button>
-      <button class="stab"         data-stab="debt">       <span class="stab-icon">💳</span><span class="stab-label">Debt</span>       </button>
-      <button class="stab"         data-stab="valuation">  <span class="stab-icon">💎</span><span class="stab-label">Valuation</span>  </button>
-      <button class="stab"         data-stab="market">     <span class="stab-icon">🌆</span><span class="stab-label">Market</span>     </button>
-      <button class="stab"         data-stab="esg">        <span class="stab-icon">🌱</span><span class="stab-label">ESG</span>        </button>
-      <button class="stab"         data-stab="datacomp">   <span class="stab-icon">✅</span><span class="stab-label">Data</span>       </button>
-    </nav>
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
 
-    <!-- ─── Sidebar Panels ─── -->
-    <div class="stab-panels">
-
-      <!-- ── Tab 1: Investment Returns ── -->
-      <div class="stab-panel active" id="sp-returns">
-        <div class="panel-title">Investment Returns</div>
-
-        <div class="kpi-card highlight">
-          <div class="kpi-label">5-Yr Projected IRR</div>
-          <div class="kpi-value text-green" id="sk-irr">14.8%</div>
-          <div class="kpi-context">Target ≥13% &nbsp;·&nbsp; ✅ Exceeds</div>
-        </div>
-        <div class="kpi-card highlight">
-          <div class="kpi-label">MOIC</div>
-          <div class="kpi-value text-green" id="sk-moic">1.73x</div>
-          <div class="kpi-context">Target ≥1.5x &nbsp;·&nbsp; ✅ Exceeds</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Cash-on-Cash (Yr 1)</div>
-          <div class="kpi-value" id="sk-coc">6.2%</div>
-          <div class="kpi-context">After debt service</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Equity Multiple</div>
-          <div class="kpi-value" id="sk-em">1.73x</div>
-          <div class="kpi-context">5-year hold</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Going-in Cap</div><div class="kpi-mini-value" id="sk-goingcap">7.45%</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Exit Cap</div><div class="kpi-mini-value" id="sk-exitcap">7.75%</div></div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">LTV</div><div class="kpi-mini-value" id="sk-ltv">65.0%</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">LTC</div><div class="kpi-mini-value" id="sk-ltc">63.8%</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Debt Yield</div>
-          <div class="kpi-value" id="sk-debtyield">11.5%</div>
-          <div class="kpi-context">NOI / Loan Amount</div>
-        </div>
-        <div class="kpi-card editable-kpi">
-          <div class="kpi-label">Purchase Price</div>
-          <div class="kpi-edit-row">
-            <span class="kpi-dollar">$</span>
-            <input type="number" id="sk-price-input" value="30000000" min="20000000" max="50000000" step="100000" title="Edit purchase price" />
+      <!-- PAGE: DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">Dashboard</div>
+            <h1 class="page-title" id="dash-property-name">Kingswood Cove Apartments</h1>
+            <p class="page-meta" id="dash-property-meta">Round Rock, TX &middot; Austin MSA &middot; 312 Units &middot; Acquired 2024</p>
           </div>
-          <div class="kpi-context">Editable — unlocks live KPI recalc</div>
-        </div>
-      </div><!-- /sp-returns -->
-
-      <!-- ── Tab 2: Operating Performance ── -->
-      <div class="stab-panel" id="sp-operations">
-        <div class="panel-title">Operating Performance</div>
-        <div class="kpi-card highlight">
-          <div class="kpi-label">Net Operating Income</div>
-          <div class="kpi-value text-green" id="sk-noi">$2,233,512</div>
-          <div class="kpi-context">Annual</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">EGI</div><div class="kpi-mini-value">$4.39M</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">GPR</div><div class="kpi-mini-value">$4.80M</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Vacancy &amp; Credit Loss</div>
-          <div class="kpi-value text-red">$412,429</div>
-          <div class="kpi-context">8.6% of GPR</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">OER</div><div class="kpi-mini-value">49.1%</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">NOI Margin</div><div class="kpi-mini-value text-green">50.9%</div></div>
-        </div>
-
-        <div class="panel-section-title">Expense Breakdown — $2,156,747</div>
-        <div class="expense-table">
-          <div class="exp-row"><span>Payroll</span><span>$612,000</span><span class="exp-pct">28.4%</span></div>
-          <div class="exp-row"><span>Property Tax</span><span>$445,000</span><span class="exp-pct">20.6%</span></div>
-          <div class="exp-row"><span>R&amp;M</span><span>$287,000</span><span class="exp-pct">13.3%</span></div>
-          <div class="exp-row"><span>Insurance</span><span>$198,000</span><span class="exp-pct">9.2%</span></div>
-          <div class="exp-row"><span>Utilities</span><span>$184,000</span><span class="exp-pct">8.5%</span></div>
-          <div class="exp-row"><span>Admin/Other</span><span>$156,000</span><span class="exp-pct">7.2%</span></div>
-          <div class="exp-row"><span>Mgmt Fee</span><span>$131,000</span><span class="exp-pct">6.1%</span></div>
-          <div class="exp-row"><span>Reserves</span><span>$88,000</span><span class="exp-pct">4.1%</span></div>
-          <div class="exp-row"><span>Marketing</span><span>$55,000</span><span class="exp-pct">2.6%</span></div>
-        </div>
-
-        <div class="exp-bar-wrap">
-          <div class="exp-bar-item" style="width:28.4%;background:#3b82f6" title="Payroll 28.4%"></div>
-          <div class="exp-bar-item" style="width:20.6%;background:#8b5cf6" title="Tax 20.6%"></div>
-          <div class="exp-bar-item" style="width:13.3%;background:#06b6d4" title="R&M 13.3%"></div>
-          <div class="exp-bar-item" style="width:9.2%;background:#f59e0b" title="Ins 9.2%"></div>
-          <div class="exp-bar-item" style="width:8.5%;background:#10b981" title="Util 8.5%"></div>
-          <div class="exp-bar-item" style="flex:1;background:#64748b" title="Other"></div>
-        </div>
-      </div><!-- /sp-operations -->
-
-      <!-- ── Tab 3: Leasing & Occupancy ── -->
-      <div class="stab-panel" id="sp-leasing">
-        <div class="panel-title">Leasing &amp; Occupancy</div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Physical Occ.</div><div class="kpi-mini-value text-green">93.2%</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Economic Occ.</div><div class="kpi-mini-value">91.4%</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Units Occupied</div>
-          <div class="kpi-value">291 / 312</div>
-          <div class="occ-bar-wrap"><div class="occ-bar"><div class="occ-fill" style="width:93.2%"></div></div></div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Avg In-Place Rent</div><div class="kpi-mini-value">$1,284</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Avg Market Rent</div><div class="kpi-mini-value">$1,340</div></div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Trade-Out</div><div class="kpi-mini-value text-green">+$56 (+4.4%)</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Loss-to-Lease</div><div class="kpi-mini-value text-amber">-$56/unit</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Concessions</div>
-          <div class="kpi-value">$18,000</div>
-          <div class="kpi-context">Annual</div>
-        </div>
-
-        <div class="panel-section-title">Unit Mix</div>
-        <table class="mini-table">
-          <thead><tr><th>Type</th><th>Units</th><th>Avg Rent</th><th>% Mix</th></tr></thead>
-          <tbody>
-            <tr><td>1BR/1BA</td><td>120</td><td>$1,050</td><td>38.5%</td></tr>
-            <tr><td>2BR/2BA</td><td>148</td><td>$1,395</td><td>47.4%</td></tr>
-            <tr><td>3BR/2BA</td><td>44</td><td>$1,685</td><td>14.1%</td></tr>
-          </tbody>
-        </table>
-
-        <div class="panel-section-title">Lease Expirations (12-Month)</div>
-        <table class="mini-table">
-          <thead><tr><th>Month</th><th>Units</th><th>%</th></tr></thead>
-          <tbody>
-            <tr><td>Jan</td><td>12</td><td>4.1%</td></tr>
-            <tr><td>Feb</td><td>8</td><td>2.7%</td></tr>
-            <tr><td>Mar</td><td>22</td><td>7.6%</td></tr>
-            <tr><td>Apr</td><td>31</td><td>10.6%</td></tr>
-            <tr><td>May</td><td>38</td><td>13.0%</td></tr>
-            <tr><td>Jun</td><td>34</td><td>11.6%</td></tr>
-            <tr><td>Jul</td><td>28</td><td>9.6%</td></tr>
-            <tr><td>Aug</td><td>25</td><td>8.6%</td></tr>
-            <tr><td>Sep</td><td>32</td><td>11.0%</td></tr>
-            <tr><td>Oct</td><td>27</td><td>9.2%</td></tr>
-            <tr><td>Nov</td><td>18</td><td>6.2%</td></tr>
-            <tr><td>Dec</td><td>16</td><td>5.5%</td></tr>
-          </tbody>
-        </table>
-      </div><!-- /sp-leasing -->
-
-      <!-- ── Tab 4: Unit Economics ── -->
-      <div class="stab-panel" id="sp-uniteco">
-        <div class="panel-title">Unit Economics</div>
-        <div class="kpi-card highlight">
-          <div class="kpi-label">Renovation ROI</div>
-          <div class="kpi-value text-green">23.4%</div>
-          <div class="kpi-context">Avg $6,200 spend → $121/mo premium</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Avg Reno Spend</div><div class="kpi-mini-value">$6,200</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Rent Premium</div><div class="kpi-mini-value">$121/mo</div></div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Payback Period</div><div class="kpi-mini-value">51.2 mo.</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Renovated Units</div><div class="kpi-mini-value">87 / 312</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Remaining Opportunity</div>
-          <div class="kpi-value">225 units</div>
-          <div class="kpi-context">72.1% of portfolio untouched</div>
-        </div>
-        <div class="reno-progress">
-          <div class="rp-track"><div class="rp-fill" style="width:27.9%"></div></div>
-          <div class="rp-labels"><span>87 renovated</span><span>225 remaining</span></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Add'l Annual Income (all reno)</div>
-          <div class="kpi-value text-green">$327,060</div>
-          <div class="kpi-context">225 units × $121/mo × 12</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Value Creation at Exit</div>
-          <div class="kpi-value text-green">$4.2M</div>
-          <div class="kpi-context">$327K NOI uplift ÷ 7.75% cap</div>
-        </div>
-
-        <div class="panel-section-title">Unit Type vs. Market Comps</div>
-        <table class="mini-table">
-          <thead><tr><th>Type</th><th>In-Place</th><th>Market</th><th>Gap</th></tr></thead>
-          <tbody>
-            <tr><td>1BR/1BA</td><td>$1,050</td><td>$1,095</td><td class="text-amber">-$45</td></tr>
-            <tr><td>2BR/2BA</td><td>$1,395</td><td>$1,450</td><td class="text-amber">-$55</td></tr>
-            <tr><td>3BR/2BA</td><td>$1,685</td><td>$1,740</td><td class="text-amber">-$55</td></tr>
-          </tbody>
-        </table>
-      </div><!-- /sp-uniteco -->
-
-      <!-- ── Tab 5: Credit & Debt Service ── -->
-      <div class="stab-panel" id="sp-debt">
-        <div class="panel-title">Credit &amp; Debt Service</div>
-        <div class="kpi-card highlight">
-          <div class="kpi-label">DSCR</div>
-          <div class="kpi-value text-green" id="sk-dscr">1.50x</div>
-          <div class="kpi-context">Min 1.25x required &nbsp;·&nbsp; ✅ Pass</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">ICR</div><div class="kpi-mini-value text-green">1.98x</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Debt Constant</div><div class="kpi-mini-value">7.64%</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Break-Even Occupancy</div>
-          <div class="kpi-value">72.3%</div>
-          <div class="kpi-context">Safety margin: 20.9 pts above break-even</div>
-        </div>
-
-        <div class="panel-section-title">Loan Details</div>
-        <div class="detail-list">
-          <div class="detail-row"><span>Loan Amount</span><span>$19,500,000</span></div>
-          <div class="detail-row"><span>Interest Rate</span><span>6.25% Fixed</span></div>
-          <div class="detail-row"><span>Amortization</span><span>30 Years</span></div>
-          <div class="detail-row"><span>IO Period</span><span>None</span></div>
-          <div class="detail-row"><span>Annual Debt Svc.</span><span>$1,489,200</span></div>
-          <div class="detail-row"><span>Monthly Payment</span><span>$124,100</span></div>
-          <div class="detail-row hl-row"><span>Free Cash Flow</span><span class="text-green">$744,312</span></div>
-          <div class="detail-row"><span>Global DSCR</span><span>N/A</span></div>
-        </div>
-      </div><!-- /sp-debt -->
-
-      <!-- ── Tab 6: Valuation & Exit ── -->
-      <div class="stab-panel" id="sp-valuation">
-        <div class="panel-title">Valuation &amp; Exit</div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Going-in Cap</div><div class="kpi-mini-value">7.45%</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Exit Cap (Yr 5)</div><div class="kpi-mini-value">7.75%</div></div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Purchase Price</div><div class="kpi-mini-value">$30.0M</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Value / Unit</div><div class="kpi-mini-value">$96,154</div></div>
-        </div>
-        <div class="kpi-card highlight">
-          <div class="kpi-label">Exit Value (Yr 5)</div>
-          <div class="kpi-value text-green">$35,200,000</div>
-          <div class="kpi-context">$112,821 / unit</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Gross Profit</div><div class="kpi-mini-value text-green">$5.2M</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Net Proceeds</div><div class="kpi-mini-value text-green">~$8.1M</div></div>
-        </div>
-
-        <div class="panel-section-title">Exit Sensitivity — Value ($M) &nbsp;[Cap Rate ↓ / NOI Growth →]</div>
-        <div class="sensitivity-wrap">
-          <table class="sensitivity-table" id="sensitivity-table"></table>
-        </div>
-      </div><!-- /sp-valuation -->
-
-      <!-- ── Tab 7: Market & Portfolio ── -->
-      <div class="stab-panel" id="sp-market">
-        <div class="panel-title">Market &amp; Portfolio</div>
-        <div class="detail-list">
-          <div class="detail-row"><span>MSA</span><span>Austin-Round Rock, TX</span></div>
-          <div class="detail-row"><span>Submarket</span><span>Round Rock/Pflugerville</span></div>
-          <div class="detail-row hl-row"><span>Pop. Growth (YoY)</span><span class="text-green">+3.2%</span></div>
-          <div class="detail-row"><span>Job Growth (YoY)</span><span class="text-green">+2.8%</span></div>
-          <div class="detail-row"><span>Unemployment</span><span>3.4%</span></div>
-          <div class="detail-row hl-row"><span>Rent Growth (T12)</span><span class="text-green">+5.1%</span></div>
-          <div class="detail-row"><span>Submarket Vacancy</span><span>7.8%</span></div>
-          <div class="detail-row"><span>New Supply (12 mo.)</span><span class="text-amber">1,847 units</span></div>
-          <div class="detail-row"><span>Absorption (12 mo.)</span><span class="text-green">2,140 units</span></div>
-        </div>
-
-        <div class="panel-section-title">Competitive Set</div>
-        <table class="mini-table">
-          <thead><tr><th>Property</th><th>Occ.</th><th>Avg Rent</th><th>Yr Blt</th></tr></thead>
-          <tbody>
-            <tr><td>Willow Creek</td><td>94%</td><td>$1,310</td><td>1994</td></tr>
-            <tr><td>Reserve at RR</td><td>91%</td><td>$1,360</td><td>2001</td></tr>
-            <tr><td>Stonegate Commons</td><td>96%</td><td>$1,285</td><td>1989</td></tr>
-            <tr><td>Creekside Village</td><td>89%</td><td>$1,420</td><td>2008</td></tr>
-            <tr class="comp-subject"><td>★ Kingswood Cove</td><td>93.2%</td><td>$1,284</td><td>1987</td></tr>
-          </tbody>
-        </table>
-
-        <div class="panel-section-title">Absorption vs. Supply</div>
-        <div class="abs-chart">
-          <div class="abs-bar-wrap">
-            <div class="abs-bar supply" style="width:86.3%" title="New Supply: 1,847 units"></div>
-            <span class="abs-label">Supply 1,847</span>
-          </div>
-          <div class="abs-bar-wrap">
-            <div class="abs-bar absorption" style="width:100%" title="Absorption: 2,140 units"></div>
-            <span class="abs-label">Abs. 2,140</span>
-          </div>
-        </div>
-      </div><!-- /sp-market -->
-
-      <!-- ── Tab 8: ESG & Risk ── -->
-      <div class="stab-panel" id="sp-esg">
-        <div class="panel-title">ESG &amp; Risk</div>
-
-        <div class="panel-section-title">Environmental</div>
-        <div class="detail-list">
-          <div class="detail-row"><span>Water Usage</span><span>4.2 gal/unit/day</span></div>
-          <div class="detail-row"><span>Electricity</span><span>8.1 kWh/unit/day</span></div>
-          <div class="detail-row"><span>Solar Installed</span><span class="text-amber">None</span></div>
-          <div class="detail-row"><span>EV Charging</span><span class="text-amber">0 stations</span></div>
-          <div class="detail-row hl-row"><span>Phase I</span><span class="text-green">Clear ✅</span></div>
-          <div class="detail-row"><span>Phase II</span><span class="text-amber">Not Ordered</span></div>
-        </div>
-
-        <div class="panel-section-title">Capital &amp; Reserves</div>
-        <div class="detail-list">
-          <div class="detail-row"><span>Annual Reserves</span><span>$88,000</span></div>
-          <div class="detail-row"><span>Reserve / Unit</span><span>$282/yr</span></div>
-          <div class="detail-row"><span>Reserve Balance</span><span>$312,000</span></div>
-          <div class="detail-row"><span>Balance / Unit</span><span>$1,000</span></div>
-          <div class="detail-row hl-row"><span>PCA Status</span><span class="text-amber">Pending ⚠️</span></div>
-          <div class="detail-row"><span>Deferred Maint.</span><span class="text-red">$1.2M est.</span></div>
-        </div>
-
-        <div class="panel-section-title">Risk &amp; Insurance</div>
-        <div class="detail-list">
-          <div class="detail-row"><span>Insurance Coverage</span><span>$32M replacement</span></div>
-          <div class="detail-row hl-row"><span>Flood Zone</span><span class="text-green">X (minimal) ✅</span></div>
-          <div class="detail-row"><span>Seismic Zone</span><span>N/A</span></div>
-        </div>
-      </div><!-- /sp-esg -->
-
-      <!-- ── Tab 9: Data Completeness ── -->
-      <div class="stab-panel" id="sp-datacomp">
-        <div class="panel-title">Data Completeness</div>
-        <div class="dc-overall">
-          <div class="dc-circle">62%</div>
-          <div class="dc-desc">62 of 100 required data fields populated across 5 categories</div>
-        </div>
-        <div class="dc-categories">
-          <div class="dc-cat">
-            <div class="dc-cat-header"><span class="dc-cat-title">Financial Data</span><span class="dc-cat-score score-amber">4/6</span></div>
-            <div class="dc-items">
-              <div class="dc-item ok">✅ T12 Operating Statement (partial)</div>
-              <div class="dc-item ok">✅ Current Year Budget</div>
-              <div class="dc-item ok">✅ NOI / Expense Summary</div>
-              <div class="dc-item ok">✅ Expense Breakdown</div>
-              <div class="dc-item missing">❌ Full Rent Roll (unit-level)</div>
-              <div class="dc-item missing">❌ T12 Q4 2023 missing</div>
-            </div>
-          </div>
-          <div class="dc-cat">
-            <div class="dc-cat-header"><span class="dc-cat-title">Physical Due Diligence</span><span class="dc-cat-score score-red">2/5</span></div>
-            <div class="dc-items">
-              <div class="dc-item ok">✅ Phase I Environmental</div>
-              <div class="dc-item ok">✅ Site Visit Completed</div>
-              <div class="dc-item missing">❌ PCA Report (pending)</div>
-              <div class="dc-item missing">❌ Phase II (not ordered)</div>
-              <div class="dc-item missing">❌ Roof Inspection</div>
-            </div>
-          </div>
-          <div class="dc-cat">
-            <div class="dc-cat-header"><span class="dc-cat-title">Legal &amp; Title</span><span class="dc-cat-score score-green">3/4</span></div>
-            <div class="dc-items">
-              <div class="dc-item ok">✅ Title Search Completed</div>
-              <div class="dc-item ok">✅ Zoning Confirmed (R-5)</div>
-              <div class="dc-item ok">✅ Survey on File</div>
-              <div class="dc-item missing">❌ Loan Documents Review</div>
-            </div>
-          </div>
-          <div class="dc-cat">
-            <div class="dc-cat-header"><span class="dc-cat-title">Leasing &amp; Operations</span><span class="dc-cat-score score-amber">3/5</span></div>
-            <div class="dc-items">
-              <div class="dc-item ok">✅ Occupancy History</div>
-              <div class="dc-item ok">✅ Management Contract</div>
-              <div class="dc-item ok">✅ Sample Lease Agreements</div>
-              <div class="dc-item missing">❌ Unit-Level Rent Roll</div>
-              <div class="dc-item missing">❌ Reno Scope &amp; Bids</div>
-            </div>
-          </div>
-          <div class="dc-cat">
-            <div class="dc-cat-header"><span class="dc-cat-title">Market Data</span><span class="dc-cat-score score-green">3/4</span></div>
-            <div class="dc-items">
-              <div class="dc-item ok">✅ Comp Set Rents</div>
-              <div class="dc-item ok">✅ Submarket Vacancy</div>
-              <div class="dc-item ok">✅ Supply Pipeline</div>
-              <div class="dc-item missing">❌ CoStar / Axiometrics Data</div>
+          <div class="page-header-right">
+            <div class="header-badge" id="dash-status-badge">
+              <span class="badge-dot badge-dot--green"></span>
+              <span>Active Deal</span>
             </div>
           </div>
         </div>
-      </div><!-- /sp-datacomp -->
 
-    </div><!-- /stab-panels -->
-  </aside><!-- /sidebar -->
-
-  <!-- ═══════════════════════════ MAIN CONTENT ═══════════════════════════ -->
-  <main class="main-content">
-
-    <!-- Main Tab Navigation -->
-    <nav class="main-tabs-nav">
-      <button class="mtab active" data-mtab="calc">📊 Analyst Calc Zone</button>
-      <button class="mtab" data-mtab="ai">🤖 AI Recommendation</button>
-      <button class="mtab" data-mtab="ask">💬 Ask Document</button>
-      <div class="main-nav-badge">Kingswood Cove &nbsp;|&nbsp; 312 Units &nbsp;|&nbsp; Austin TX MSA</div>
-    </nav>
-
-    <!-- ─── Main Panel 1: Analyst Calc Zone ─── -->
-    <div class="mtab-panel active" id="mp-calc">
-      <div class="panel-header">
-        <h1>Analyst Calculation Zone</h1>
-        <p class="panel-subtitle">Kingswood Cove Apartments — Live Sensitivity &amp; Scenario Analysis</p>
-      </div>
-
-      <!-- Sliders 2×3 Grid -->
-      <div class="sliders-grid">
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">Purchase Price</span>
-            <span class="slider-value" id="sv-price">$30.0M</span>
+        <!-- KPI Hero Row (4 cards) -->
+        <div class="kpi-row">
+          <div class="kpi-card kpi-card--primary" data-delay="0">
+            <div class="kpi-card-label">5-Year IRR</div>
+            <div class="kpi-card-value" id="sk-irr">14.8%</div>
+            <div class="kpi-card-bench">Target &ge; 13%</div>
+            <div class="kpi-card-trend" id="kpi-irr-trend">&#9650; Above hurdle</div>
           </div>
-          <input type="range" id="sl-price" min="25000000" max="45000000" step="100000" value="30000000" class="styled-slider" />
-          <div class="slider-bounds"><span>$25M</span><span>$45M</span></div>
-        </div>
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">Going-in Cap Rate</span>
-            <span class="slider-value" id="sv-caprate">7.45%</span>
+          <div class="kpi-card" data-delay="1">
+            <div class="kpi-card-label">Equity Multiple</div>
+            <div class="kpi-card-value" id="sk-moic">1.73x</div>
+            <div class="kpi-card-bench">Target &ge; 1.5x</div>
+            <div class="kpi-card-trend" id="kpi-moic-trend">&#9650; Exceeds target</div>
           </div>
-          <input type="range" id="sl-caprate" min="5.0" max="9.0" step="0.05" value="7.45" class="styled-slider" />
-          <div class="slider-bounds"><span>5.0%</span><span>9.0%</span></div>
-        </div>
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">LTV</span>
-            <span class="slider-value" id="sv-ltv">65.0%</span>
+          <div class="kpi-card" data-delay="2">
+            <div class="kpi-card-label">DSCR</div>
+            <div class="kpi-card-value" id="sk-dscr">1.50x</div>
+            <div class="kpi-card-bench">Min 1.25x</div>
+            <div class="kpi-card-trend" id="kpi-dscr-trend">&#10003; Lender pass</div>
           </div>
-          <input type="range" id="sl-ltv" min="50" max="80" step="1" value="65" class="styled-slider" />
-          <div class="slider-bounds"><span>50%</span><span>80%</span></div>
-        </div>
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">Interest Rate</span>
-            <span class="slider-value" id="sv-rate">6.25%</span>
-          </div>
-          <input type="range" id="sl-rate" min="4.0" max="9.0" step="0.05" value="6.25" class="styled-slider" />
-          <div class="slider-bounds"><span>4.0%</span><span>9.0%</span></div>
-        </div>
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">Occupancy</span>
-            <span class="slider-value" id="sv-occ">93.2%</span>
-          </div>
-          <input type="range" id="sl-occ" min="80" max="99" step="0.1" value="93.2" class="styled-slider" />
-          <div class="slider-bounds"><span>80%</span><span>99%</span></div>
-        </div>
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">NOI Growth (Annual)</span>
-            <span class="slider-value" id="sv-noigrowth">2.5%</span>
-          </div>
-          <input type="range" id="sl-noigrowth" min="0" max="6" step="0.1" value="2.5" class="styled-slider" />
-          <div class="slider-bounds"><span>0%</span><span>6%</span></div>
-        </div>
-      </div><!-- /sliders-grid -->
-
-      <!-- Calculated Outputs -->
-      <div class="calc-outputs">
-        <div class="calc-output-card" id="coc-dscr-card">
-          <div class="co-label">DSCR</div>
-          <div class="co-value" id="co-dscr">1.50x</div>
-          <div class="co-indicator" id="co-dscr-ind">✅ Pass (≥1.25x)</div>
-        </div>
-        <div class="calc-output-card">
-          <div class="co-label">Going-in Cap Rate</div>
-          <div class="co-value" id="co-caprate">7.45%</div>
-          <div class="co-indicator" id="co-caprate-ind">NOI ÷ Purchase Price</div>
-        </div>
-        <div class="calc-output-card">
-          <div class="co-label">Exit Value (Yr 5)</div>
-          <div class="co-value" id="co-exitval">$35.2M</div>
-          <div class="co-indicator" id="co-exitval-ind">at 7.75% exit cap</div>
-        </div>
-        <div class="calc-output-card">
-          <div class="co-label">CoC Return (Yr 1)</div>
-          <div class="co-value" id="co-coc">6.2%</div>
-          <div class="co-indicator" id="co-coc-ind">After debt service</div>
-        </div>
-      </div><!-- /calc-outputs -->
-
-      <!-- Scenario Comparison -->
-      <div class="scenario-section">
-        <div class="scenario-header">
-          <h2>Scenario Comparison</h2>
-          <div class="scenario-actions">
-            <button class="btn-primary" onclick="saveScenario()">💾 Save Scenario</button>
-            <button class="btn-secondary" onclick="clearScenarios()">🗑 Clear All</button>
-            <button class="btn-secondary" onclick="exportCSV()">📄 Export CSV</button>
+          <div class="kpi-card" data-delay="3">
+            <div class="kpi-card-label">Cash-on-Cash Yr1</div>
+            <div class="kpi-card-value" id="sk-coc">6.2%</div>
+            <div class="kpi-card-bench">After debt service</div>
+            <div class="kpi-card-trend" id="kpi-coc-trend">&#9650; Strong</div>
           </div>
         </div>
-        <div class="table-wrap">
-          <table class="scenario-table">
-            <thead>
-              <tr>
-                <th>Scenario</th><th>Price</th><th>Cap Rate</th><th>LTV</th>
-                <th>Rate</th><th>Occ.</th><th>NOI Gr.</th><th>DSCR</th><th>CoC</th><th>Exit Value</th>
-              </tr>
-            </thead>
-            <tbody id="scenario-tbody"></tbody>
-          </table>
+
+        <!-- KPI Chips Bar -->
+        <div class="kpi-chips-bar">
+          <div class="kpi-chip"><span class="chip-label">NOI</span><span class="chip-val" id="sk-noi">$2,233,512</span></div>
+          <div class="kpi-chip"><span class="chip-label">Going-in Cap</span><span class="chip-val" id="sk-goingcap">7.45%</span></div>
+          <div class="kpi-chip"><span class="chip-label">Exit Cap (Yr5)</span><span class="chip-val" id="sk-exitcap">7.75%</span></div>
+          <div class="kpi-chip"><span class="chip-label">LTV</span><span class="chip-val" id="sk-ltv">65.0%</span></div>
+          <div class="kpi-chip"><span class="chip-label">Debt Yield</span><span class="chip-val" id="sk-debtyield">11.5%</span></div>
+          <div class="kpi-chip"><span class="chip-label">Equity Mult</span><span class="chip-val" id="sk-em">1.73x</span></div>
+          <div class="kpi-chip"><span class="chip-label">LTC</span><span class="chip-val" id="sk-ltc">63.8%</span></div>
         </div>
-      </div><!-- /scenario-section -->
-    </div><!-- /mp-calc -->
 
-    <!-- ─── Main Panel 2: AI Recommendation ─── -->
-    <div class="mtab-panel" id="mp-ai">
-      <div class="panel-header">
-        <h1>AI Investment Analysis</h1>
-        <p class="panel-subtitle">Kingswood Cove Apartments — Due Diligence, Risk Assessment &amp; IC Preparation</p>
-      </div>
-
-      <!-- OM Summary Card -->
-      <div class="om-summary-card">
-        <div class="om-summary-header">📋 Offering Memorandum Summary — Kingswood Cove Apartments</div>
-        <div class="om-summary-grid">
-          <div class="om-kpi"><span>Property</span><strong>Kingswood Cove Apts.</strong></div>
-          <div class="om-kpi"><span>Location</span><strong>Round Rock, TX</strong></div>
-          <div class="om-kpi"><span>Units</span><strong>312</strong></div>
-          <div class="om-kpi"><span>Year Built / Reno</span><strong>1987 / 2019</strong></div>
-          <div class="om-kpi"><span>Acquisition Year</span><strong>2024</strong></div>
-          <div class="om-kpi"><span>Purchase Price</span><strong>$30,000,000</strong></div>
-          <div class="om-kpi"><span>Price / Unit</span><strong>$96,154</strong></div>
-          <div class="om-kpi"><span>NOI</span><strong>$2,233,512</strong></div>
-          <div class="om-kpi"><span>Going-in Cap Rate</span><strong>7.45%</strong></div>
-          <div class="om-kpi"><span>Physical Occupancy</span><strong>93.2%</strong></div>
-          <div class="om-kpi"><span>Avg In-Place Rent</span><strong>$1,284/unit</strong></div>
-          <div class="om-kpi"><span>DSCR</span><strong>1.50x</strong></div>
-          <div class="om-kpi"><span>LTV</span><strong>65%</strong></div>
-          <div class="om-kpi"><span>5-Yr IRR</span><strong>14.8%</strong></div>
-          <div class="om-kpi"><span>Exit Value (Yr 5)</span><strong>$35,200,000</strong></div>
+        <!-- Deal Summary -->
+        <div class="deal-summary-card">
+          <div class="deal-summary-label">Deal Summary</div>
+          <p class="deal-summary-text" id="deal-summary-text">
+            Kingswood Cove Apartments is a 312-unit multifamily value-add acquisition in Round Rock, TX (Austin-Round Rock MSA) acquired at <strong>$30M ($96,154/unit)</strong> on a <strong>7.45% going-in cap rate</strong>. The property is 93.2% occupied with an active renovation program (87/312 units complete) generating a $121/month rent premium. With 65% LTV fixed-rate financing at 6.25%, the deal projects a <strong>14.8% 5-year IRR</strong> and <strong>1.73x MOIC</strong>, supported by strong Austin MSA fundamentals including 3.2% population growth and 5.1% trailing rent growth. DSCR of 1.50x provides a 25-basis-point buffer above the lender minimum.
+          </p>
         </div>
-      </div>
 
-      <!-- Gap Alerts -->
-      <div class="section-card">
-        <h2 class="section-title">⚠️ Gap Alerts &amp; Data Issues</h2>
-        <div class="alert-list">
-          <div class="alert-item critical">
-            <span class="alert-badge badge-critical">🔴 CRITICAL</span>
-            <div class="alert-content">
-              <div class="alert-title">Rent Roll Not Provided</div>
-              <div class="alert-desc">Cannot verify individual unit rents or lease expirations. Unit-level detail required for accurate NOI projection and rent roll analysis.</div>
+        <!-- Scenario Modeler -->
+        <div class="section-card">
+          <div class="section-title">Advanced Scenario Modeler</div>
+          <div class="section-sub">Adjust assumptions and watch every metric recalculate live.</div>
+
+          <div class="sliders-grid">
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">Purchase Price</span>
+                <span class="slider-value" id="sv-price">$30.0M</span>
+              </div>
+              <input type="range" id="sl-price" min="25000000" max="45000000" step="100000" value="30000000" class="styled-slider" />
+              <div class="slider-bounds"><span>$25M</span><span>$45M</span></div>
+            </div>
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">Going-in Cap Rate</span>
+                <span class="slider-value" id="sv-caprate">7.45%</span>
+              </div>
+              <input type="range" id="sl-caprate" min="5.0" max="9.0" step="0.05" value="7.45" class="styled-slider" />
+              <div class="slider-bounds"><span>5.0%</span><span>9.0%</span></div>
+            </div>
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">LTV</span>
+                <span class="slider-value" id="sv-ltv">65.0%</span>
+              </div>
+              <input type="range" id="sl-ltv" min="50" max="80" step="1" value="65" class="styled-slider" />
+              <div class="slider-bounds"><span>50%</span><span>80%</span></div>
+            </div>
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">Interest Rate</span>
+                <span class="slider-value" id="sv-rate">6.25%</span>
+              </div>
+              <input type="range" id="sl-rate" min="4.0" max="9.0" step="0.05" value="6.25" class="styled-slider" />
+              <div class="slider-bounds"><span>4.0%</span><span>9.0%</span></div>
+            </div>
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">Occupancy</span>
+                <span class="slider-value" id="sv-occ">93.2%</span>
+              </div>
+              <input type="range" id="sl-occ" min="80" max="99" step="0.1" value="93.2" class="styled-slider" />
+              <div class="slider-bounds"><span>80%</span><span>99%</span></div>
+            </div>
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">NOI Growth (Annual)</span>
+                <span class="slider-value" id="sv-noigrowth">2.5%</span>
+              </div>
+              <input type="range" id="sl-noigrowth" min="0" max="6" step="0.1" value="2.5" class="styled-slider" />
+              <div class="slider-bounds"><span>0%</span><span>6%</span></div>
             </div>
           </div>
-          <div class="alert-item critical">
-            <span class="alert-badge badge-critical">🔴 CRITICAL</span>
-            <div class="alert-content">
-              <div class="alert-title">T12 Financials — Missing Q4 2023</div>
-              <div class="alert-desc">NOI projection basis unclear. Full trailing 12 months required to validate annual expense run rate and seasonal patterns.</div>
+
+          <!-- Calc Output Row 1 -->
+          <div class="calc-outputs">
+            <div class="calc-output-card">
+              <div class="co-label">DSCR</div>
+              <div class="co-value" id="co-dscr">1.50x</div>
+              <div class="co-indicator" id="co-dscr-ind">&#10003; Pass (&ge;1.25x)</div>
+            </div>
+            <div class="calc-output-card">
+              <div class="co-label">Cap Rate</div>
+              <div class="co-value" id="co-caprate">7.45%</div>
+              <div class="co-indicator" id="co-caprate-ind">NOI &divide; Purchase Price</div>
+            </div>
+            <div class="calc-output-card">
+              <div class="co-label">Exit Value (Yr 5)</div>
+              <div class="co-value" id="co-exitval">$32.6M</div>
+              <div class="co-indicator" id="co-exitval-ind">at 7.75% exit cap</div>
+            </div>
+            <div class="calc-output-card">
+              <div class="co-label">CoC Return (Yr 1)</div>
+              <div class="co-value" id="co-coc">6.2%</div>
+              <div class="co-indicator" id="co-coc-ind">After debt service</div>
             </div>
           </div>
-          <div class="alert-item warning">
-            <span class="alert-badge badge-warning">🟡 WARNING</span>
-            <div class="alert-content">
-              <div class="alert-title">PCA Not Yet Completed</div>
-              <div class="alert-desc">Deferred maintenance estimate of $1.2M is unverified. PCA could materially affect closing conditions, earnest money, and capital reserve requirements.</div>
+          <!-- Calc Output Row 2 -->
+          <div class="calc-outputs">
+            <div class="calc-output-card">
+              <div class="co-label">NOI</div>
+              <div class="co-value" id="co-noi">$2,233,512</div>
+              <div class="co-indicator" id="co-noi-ind">Net Operating Income</div>
             </div>
-          </div>
-          <div class="alert-item warning">
-            <span class="alert-badge badge-warning">🟡 WARNING</span>
-            <div class="alert-content">
-              <div class="alert-title">Renovation Schedule Unconfirmed</div>
-              <div class="alert-desc">87 units noted as renovated but contractor bids and completion schedule for remaining 225 units not provided. Value-add thesis dependent on renovation pipeline execution.</div>
+            <div class="calc-output-card">
+              <div class="co-label">Annual Debt Service</div>
+              <div class="co-value" id="co-ds">$1,441,200</div>
+              <div class="co-indicator" id="co-ds-ind">P&amp;I on $19.5M loan</div>
             </div>
-          </div>
-          <div class="alert-item warning">
-            <span class="alert-badge badge-warning">🟡 WARNING</span>
-            <div class="alert-content">
-              <div class="alert-title">Utility Sub-Metering Not Confirmed</div>
-              <div class="alert-desc">If property is master-metered, utilities could represent significant hidden cost exposure. May materially impact EGI and NOI assumptions.</div>
+            <div class="calc-output-card">
+              <div class="co-label">Free Cash Flow</div>
+              <div class="co-value" id="co-fcf">$792,312</div>
+              <div class="co-indicator" id="co-fcf-ind">NOI after debt service</div>
             </div>
-          </div>
-          <div class="alert-item clear">
-            <span class="alert-badge badge-clear">🟢 CLEAR</span>
-            <div class="alert-content">
-              <div class="alert-title">Phase I Environmental — No RECs</div>
-              <div class="alert-desc">No recognized environmental conditions identified. Phase I completed April 20, 2024. No further investigation recommended at this time.</div>
-            </div>
-          </div>
-          <div class="alert-item clear">
-            <span class="alert-badge badge-clear">🟢 CLEAR</span>
-            <div class="alert-content">
-              <div class="alert-title">Title Search Completed — No Encumbrances</div>
-              <div class="alert-desc">Title insurance commitment received. No liens, encumbrances, or title issues identified. Clear title transfer anticipated.</div>
+            <div class="calc-output-card">
+              <div class="co-label">IRR</div>
+              <div class="co-value" id="co-irr">14.8%</div>
+              <div class="co-indicator" id="co-irr-ind">5-Year levered IRR</div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- QA Checklist -->
-      <div class="section-card">
-        <h2 class="section-title">✅ Due Diligence QA Checklist</h2>
-        <div class="checklist-grid">
-          <label class="check-item checked"><input type="checkbox" checked /> Verify ownership and title</label>
-          <label class="check-item checked"><input type="checkbox" checked /> Confirm zoning (R-5 Multifamily)</label>
-          <label class="check-item checked"><input type="checkbox" checked /> Review T12 operating statements</label>
-          <label class="check-item"><input type="checkbox" /> Obtain full rent roll (unit-level)</label>
-          <label class="check-item"><input type="checkbox" /> Verify PCA report</label>
-          <label class="check-item checked"><input type="checkbox" checked /> Confirm Phase I environmental clear</label>
-          <label class="check-item"><input type="checkbox" /> Review loan documents and terms</label>
-          <label class="check-item"><input type="checkbox" /> Verify tax assessment &amp; protest history</label>
-          <label class="check-item checked"><input type="checkbox" checked /> Confirm insurance coverages</label>
-          <label class="check-item"><input type="checkbox" /> Validate reno scope and contractor bids</label>
-          <label class="check-item checked"><input type="checkbox" checked /> Review lease agreements (sample)</label>
-          <label class="check-item"><input type="checkbox" /> Verify utility consumption data</label>
-          <label class="check-item"><input type="checkbox" /> Confirm management contract terms</label>
-          <label class="check-item"><input type="checkbox" /> Perform submarket rent survey</label>
-          <label class="check-item"><input type="checkbox" /> Validate financial model assumptions</label>
+        <!-- Editable Purchase Price -->
+        <div class="kpi-edit-strip">
+          <span class="kpi-edit-label">Purchase Price</span>
+          <span class="kpi-dollar">$</span>
+          <input type="number" id="sk-price-input" value="30000000" min="20000000" max="50000000" step="100000" title="Edit purchase price" />
+          <span class="kpi-edit-hint">Editable &mdash; live KPI recalc</span>
         </div>
-      </div>
 
-      <!-- Priority Action Items -->
-      <div class="section-card">
-        <h2 class="section-title">🎯 Priority Action Items</h2>
-        <ol class="action-list">
-          <li><strong>Obtain complete rent roll</strong> — Request unit-level detail with current rents, lease start/end dates, tenant names, and any active concessions. Critical path item before LOI execution proceeds.</li>
-          <li><strong>Complete Property Condition Assessment (PCA)</strong> — Engage qualified engineer to complete PCA within DD period. Budget for $1.2M deferred maintenance estimate plus 20% contingency for underwriting.</li>
-          <li><strong>Request T12 for full year 2023</strong> — Current data missing Q4. Full trailing 12 months needed to validate seasonal patterns and accurate expense run rate before hard earnest money goes non-refundable.</li>
-          <li><strong>Validate renovation pipeline &amp; pricing</strong> — Obtain current bids for remaining 225 units. Confirm $6,200/unit average with current labor/materials costs. Validate $121/mo premium against recent lease-up comps.</li>
-          <li><strong>Confirm utility structure</strong> — Determine if master-metered or sub-metered. If master-metered, remodel utility expense and impact to NOI. Sub-metering conversion cost should be factored into capex budget.</li>
-          <li><strong>Review tax assessment history</strong> — Williamson County assessment trends. Identify any pending protests or year-over-year increases that could affect forward expense budget.</li>
-          <li><strong>Coordinate lender appraisal</strong> — Align with lender timeline for appraisal order. Ensure comparable sales support $30M purchase price at 7.45% going-in cap rate for underwriting.</li>
-        </ol>
-      </div>
-
-      <!-- DD Milestone Tracker -->
-      <div class="section-card">
-        <h2 class="section-title">📅 Due Diligence Milestone Tracker</h2>
-        <table class="milestone-table">
-          <thead><tr><th>Milestone</th><th>Due Date</th><th>Assignee</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr><td>LOI Executed</td><td>Apr 15, 2024</td><td>Principal</td><td><span class="badge badge-success">✅ Complete</span></td></tr>
-            <tr><td>Due Diligence Period</td><td>Apr 15 – May 15</td><td>All</td><td><span class="badge badge-progress">🔄 In Progress</span></td></tr>
-            <tr><td>PCA Ordered</td><td>Apr 18, 2024</td><td>Analyst</td><td><span class="badge badge-success">✅ Complete</span></td></tr>
-            <tr><td>Phase I Environmental</td><td>Apr 20, 2024</td><td>Consultant</td><td><span class="badge badge-success">✅ Complete</span></td></tr>
-            <tr><td>Loan Application Submitted</td><td>Apr 22, 2024</td><td>Capital Mkts</td><td><span class="badge badge-progress">🔄 In Progress</span></td></tr>
-            <tr><td>Full Rent Roll Receipt</td><td>Apr 25, 2024</td><td>Broker</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
-            <tr><td>Hard Earnest Money</td><td>May 1, 2024</td><td>Escrow</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
-            <tr><td>Appraisal Ordered</td><td>May 5, 2024</td><td>Lender</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
-            <tr><td>Commitment Letter</td><td>May 10, 2024</td><td>Lender</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
-            <tr><td>Closing</td><td>May 30, 2024</td><td>All</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- IC Memo Button -->
-      <div class="ic-memo-section">
-        <div class="ic-memo-section-inner">
-          <div>
-            <div class="ic-memo-title">Investment Committee Memorandum</div>
-            <div class="ic-memo-desc">Generate a complete, formatted IC memo with all deal metrics, risk factors, market analysis, and investment recommendation ready for committee review.</div>
+        <!-- Scenario Comparison -->
+        <div class="section-card">
+          <div class="scenario-header">
+            <div class="section-title">Scenario Comparison</div>
+            <div class="scenario-actions">
+              <button class="btn-primary" onclick="saveScenario()">&#128190; Save Scenario</button>
+              <button class="btn-secondary" onclick="clearScenarios()">&#128465; Clear All</button>
+              <button class="btn-secondary" onclick="exportCSV()">&#128196; Export CSV</button>
+            </div>
           </div>
-          <button class="btn-ic-memo" onclick="generateICMemo()">📄 Generate Full IC Memo</button>
+          <div class="table-wrap">
+            <table class="scenario-table">
+              <thead>
+                <tr><th>Scenario</th><th>Price</th><th>Cap Rate</th><th>LTV</th><th>Rate</th><th>Occ.</th><th>NOI Gr.</th><th>DSCR</th><th>CoC</th><th>Exit Value</th></tr>
+              </thead>
+              <tbody id="scenario-tbody"></tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    </div><!-- /mp-ai -->
 
-    <!-- ─── Main Panel 3: Ask Document ─── -->
-    <div class="mtab-panel" id="mp-ask">
-      <div class="panel-header">
-        <h1>Ask Document</h1>
-        <p class="panel-subtitle">Kingswood Cove OM — Natural Language Q&amp;A &amp; Document Intelligence</p>
-      </div>
-
-      <!-- API Key -->
-      <div class="api-key-card">
-        <div class="api-key-label">🔑 Anthropic API Key <span class="api-optional">(Optional)</span></div>
-        <div class="api-key-row">
-          <input type="password" id="anthropic-key" placeholder="sk-ant-... leave blank to use pre-built OM responses" />
-          <button class="btn-secondary" onclick="saveApiKey()">Save Key</button>
+        <!-- Sensitivity Table -->
+        <div class="section-card">
+          <div class="section-title">Exit Sensitivity &mdash; Value ($M)</div>
+          <div class="section-sub">Cap Rate &darr;&nbsp;/&nbsp;NOI Growth &rarr;</div>
+          <div class="sensitivity-wrap">
+            <table class="sensitivity-table" id="sensitivity-table"></table>
+          </div>
         </div>
-        <div class="api-key-note">If provided, responses use Claude AI with live OM context. Otherwise, comprehensive pre-built responses are returned instantly.</div>
-      </div>
 
-      <!-- Quick Questions -->
-      <div class="quick-questions">
-        <h3 class="qq-title">Quick Questions</h3>
-        <div class="qq-grid">
-          <button class="qq-btn" onclick="askDocument('What is the current NOI?')">What is the current NOI?</button>
-          <button class="qq-btn" onclick="askDocument('What are the occupancy rates?')">What are the occupancy rates?</button>
-          <button class="qq-btn" onclick="askDocument('Explain the renovation opportunity')">Explain the renovation opportunity</button>
-          <button class="qq-btn" onclick="askDocument('What are the key risk factors?')">What are the key risk factors?</button>
-          <button class="qq-btn" onclick="askDocument('Summarize the debt terms')">Summarize the debt terms</button>
-          <button class="qq-btn" onclick="askDocument('What is the exit strategy?')">What is the exit strategy?</button>
-          <button class="qq-btn" onclick="askDocument('Compare to market comps')">Compare to market comps</button>
-          <button class="qq-btn" onclick="askDocument('What data is missing?')">What data is missing?</button>
+      </div><!-- /page-dashboard -->
+
+      <!-- PAGE: RETURNS -->
+      <div class="page" id="page-returns">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">Returns</div>
+            <h1 class="page-title">Returns Analysis</h1>
+            <p class="page-meta">5-Year Hold &middot; Levered IRR &middot; MOIC &middot; Cash Flow Attribution</p>
+          </div>
         </div>
-      </div>
 
-      <!-- Chat Interface -->
-      <div class="chat-container">
-        <div class="chat-messages" id="chat-messages">
-          <div class="chat-msg assistant">
-            <div class="chat-avatar">🤖</div>
-            <div class="chat-bubble">
-              <strong>Kingswood Cove OM Assistant</strong>
-              Welcome! I'm loaded with the complete Kingswood Cove Offering Memorandum. Ask me anything about this deal — NOI, occupancy, renovation upside, debt terms, market comps, risk factors, or missing data gaps. Click a quick question above or type your own below.
+        <div class="section-card" id="returns-irr-card">
+          <div class="section-title">Return Summary</div>
+          <div class="metrics-grid">
+            <div class="metric-card metric-card--accent">
+              <div class="metric-label">5-Year IRR</div>
+              <div class="metric-value" id="ret-irr">14.8%</div>
+              <div class="metric-sub">Target &ge; 13.0%</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Equity Multiple (MOIC)</div>
+              <div class="metric-value" id="ret-moic">1.73x</div>
+              <div class="metric-sub">Target &ge; 1.5x</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Initial Equity</div>
+              <div class="metric-value" id="ret-equity">$10,500,000</div>
+              <div class="metric-sub">35% of $30M purchase price</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Total Distributions</div>
+              <div class="metric-value" id="ret-distributions">$3,841,064</div>
+              <div class="metric-sub">5 years of growing cash flows</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Exit Proceeds (Net)</div>
+              <div class="metric-value" id="ret-exit-proceeds">$14,359,898</div>
+              <div class="metric-sub">After $18.24M loan payoff</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Total Return</div>
+              <div class="metric-value" id="ret-total-return">$18,200,962</div>
+              <div class="metric-sub">Distributions + net exit</div>
             </div>
           </div>
         </div>
-        <div class="chat-input-wrap">
-          <input type="text" id="chat-input" placeholder="Ask a question about Kingswood Cove..." onkeydown="if(event.key==='Enter' && this.value.trim()) { askDocument(this.value); }" />
-          <button class="btn-primary" onclick="askDocument(document.getElementById('chat-input').value)">Ask →</button>
+
+        <div class="section-card">
+          <div class="section-title">5-Year Cash Flow Projection</div>
+          <div class="section-sub">Base case: 2.5% NOI growth, 6.25% rate, 65% LTV</div>
+          <div class="table-wrap">
+            <table class="data-table" id="returns-cf-table">
+              <thead>
+                <tr><th>Year</th><th>NOI</th><th>Debt Service</th><th>Free Cash Flow</th><th>CoC Return</th><th>Cum. CF</th></tr>
+              </thead>
+              <tbody id="returns-cf-tbody">
+                <tr><td>Year 1</td><td>$2,233,512</td><td>$1,441,200</td><td>$792,312</td><td>6.6%</td><td>$792,312</td></tr>
+                <tr><td>Year 2</td><td>$2,289,350</td><td>$1,441,200</td><td>$848,150</td><td>7.1%</td><td>$1,640,462</td></tr>
+                <tr><td>Year 3</td><td>$2,346,584</td><td>$1,441,200</td><td>$905,384</td><td>7.6%</td><td>$2,545,846</td></tr>
+                <tr><td>Year 4</td><td>$2,405,248</td><td>$1,441,200</td><td>$964,048</td><td>8.1%</td><td>$3,509,894</td></tr>
+                <tr class="total-row"><td>Year 5 (+ exit)</td><td>$2,465,380</td><td>$1,441,200</td><td>$1,024,180 + $14,360K</td><td>8.6%</td><td>$18,894,074</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    </div><!-- /mp-ask -->
 
-  </main><!-- /main-content -->
-</div><!-- /app-container -->
+        <div class="section-card">
+          <div class="section-title">Return Attribution</div>
+          <div class="section-sub">Where does the total return come from?</div>
+          <div class="ret-attr-row">
+            <div class="ret-attr-label">
+              <span>Cash Flow Distributions</span><span id="ret-cf-pct">21%</span>
+            </div>
+            <div class="ret-attr-track"><div class="ret-attr-fill ret-attr-fill--cf" style="width:21%">21%</div></div>
+          </div>
+          <div class="ret-attr-row" style="margin-top:12px">
+            <div class="ret-attr-label">
+              <span>Appreciation / Exit Proceeds</span><span id="ret-appr-pct">79%</span>
+            </div>
+            <div class="ret-attr-track"><div class="ret-attr-fill ret-attr-fill--appr" style="width:79%">79%</div></div>
+          </div>
+        </div>
+      </div><!-- /page-returns -->
 
-<!-- ═══════════════════════════ IC MEMO MODAL ═══════════════════════════ -->
+      <!-- PAGE: OPERATIONS -->
+      <div class="page" id="page-operations">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">Operations</div>
+            <h1 class="page-title">Operations &amp; NOI</h1>
+            <p class="page-meta">Income Waterfall &middot; Expense Breakdown &middot; Operating Ratios</p>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Income Waterfall</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Line Item</th><th style="text-align:right">Annual</th><th style="text-align:right">Per Unit</th><th style="text-align:right">% of GPR</th></tr></thead>
+              <tbody>
+                <tr><td>Gross Potential Rent (GPR)</td><td style="text-align:right" id="op-gpr">$4,802,688</td><td style="text-align:right">$15,393</td><td style="text-align:right">100.0%</td></tr>
+                <tr><td>Less: Vacancy &amp; Credit Loss</td><td style="text-align:right;color:#ef4444" id="op-vacancy">($412,429)</td><td style="text-align:right;color:#ef4444">($1,322)</td><td style="text-align:right;color:#ef4444">(8.6%)</td></tr>
+                <tr class="total-row" style="border-top:none"><td>Effective Gross Income (EGI)</td><td style="text-align:right" id="op-egi">$4,390,259</td><td style="text-align:right">$14,072</td><td style="text-align:right">91.4%</td></tr>
+                <tr><td>Less: Total Operating Expenses</td><td style="text-align:right;color:#ef4444" id="op-opex">($2,156,747)</td><td style="text-align:right;color:#ef4444">($6,913)</td><td style="text-align:right;color:#ef4444">(44.9%)</td></tr>
+                <tr class="total-row"><td><strong>Net Operating Income (NOI)</strong></td><td style="text-align:right"><strong id="op-noi">$2,233,512</strong></td><td style="text-align:right"><strong>$7,159</strong></td><td style="text-align:right"><strong>46.5%</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="metrics-grid-4">
+          <div class="metric-card"><div class="metric-label">Operating Expense Ratio</div><div class="metric-value" id="op-oer">49.1%</div><div class="metric-sub">OpEx / EGI</div></div>
+          <div class="metric-card"><div class="metric-label">NOI Margin</div><div class="metric-value" id="op-margin">50.9%</div><div class="metric-sub">NOI / EGI</div></div>
+          <div class="metric-card"><div class="metric-label">NOI / Unit</div><div class="metric-value" id="op-noi-unit">$7,159</div><div class="metric-sub">Annual per unit</div></div>
+          <div class="metric-card"><div class="metric-label">EGI / Unit</div><div class="metric-value" id="op-egi-unit">$14,072</div><div class="metric-sub">Annual per unit</div></div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Operating Expense Breakdown</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Expense Category</th><th style="text-align:right">Annual</th><th style="text-align:right">Per Unit</th><th style="text-align:right">% of OpEx</th></tr></thead>
+              <tbody>
+                <tr><td>Payroll &amp; Benefits</td><td style="text-align:right" id="op-exp-payroll">$612,000</td><td style="text-align:right">$1,962</td><td style="text-align:right">28.4%</td></tr>
+                <tr><td>Property Tax</td><td style="text-align:right" id="op-exp-tax">$445,000</td><td style="text-align:right">$1,426</td><td style="text-align:right">20.6%</td></tr>
+                <tr><td>Repairs &amp; Maintenance</td><td style="text-align:right" id="op-exp-rm">$287,000</td><td style="text-align:right">$919</td><td style="text-align:right">13.3%</td></tr>
+                <tr><td>Insurance</td><td style="text-align:right" id="op-exp-insurance">$198,000</td><td style="text-align:right">$635</td><td style="text-align:right">9.2%</td></tr>
+                <tr><td>Utilities</td><td style="text-align:right" id="op-exp-utilities">$184,000</td><td style="text-align:right">$590</td><td style="text-align:right">8.5%</td></tr>
+                <tr><td>General &amp; Admin</td><td style="text-align:right" id="op-exp-admin">$156,000</td><td style="text-align:right">$500</td><td style="text-align:right">7.2%</td></tr>
+                <tr><td>Management Fee</td><td style="text-align:right" id="op-exp-mgmt">$131,000</td><td style="text-align:right">$420</td><td style="text-align:right">6.1%</td></tr>
+                <tr><td>Capital Reserves</td><td style="text-align:right" id="op-exp-reserves">$88,000</td><td style="text-align:right">$282</td><td style="text-align:right">4.1%</td></tr>
+                <tr><td>Marketing &amp; Leasing</td><td style="text-align:right" id="op-exp-marketing">$55,000</td><td style="text-align:right">$176</td><td style="text-align:right">2.6%</td></tr>
+                <tr class="total-row"><td><strong>Total</strong></td><td style="text-align:right"><strong>$2,156,000</strong></td><td style="text-align:right"><strong>$6,910</strong></td><td style="text-align:right"><strong>100%</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /page-operations -->
+
+      <!-- PAGE: LEASING -->
+      <div class="page" id="page-leasing">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">Leasing</div>
+            <h1 class="page-title">Leasing &amp; Occupancy</h1>
+            <p class="page-meta">Unit Mix &middot; Loss-to-Lease &middot; Lease Expiration Schedule</p>
+          </div>
+        </div>
+
+        <div class="metrics-grid-4">
+          <div class="metric-card metric-card--accent"><div class="metric-label">Physical Occupancy</div><div class="metric-value" id="ls-physical-occ">93.2%</div><div class="metric-sub">291 of 312 units</div></div>
+          <div class="metric-card"><div class="metric-label">Economic Occupancy</div><div class="metric-value" id="ls-economic-occ">91.4%</div><div class="metric-sub">Net of concessions</div></div>
+          <div class="metric-card"><div class="metric-label">Vacancy Loss</div><div class="metric-value" id="ls-vacancy-loss">$412,429</div><div class="metric-sub">8.6% of GPR</div></div>
+          <div class="metric-card"><div class="metric-label">Concessions</div><div class="metric-value" id="ls-concessions">$18,000</div><div class="metric-sub">Annual incentives</div></div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Unit Mix &amp; Rent Analysis</div>
+          <div class="table-wrap">
+            <table class="data-table" id="leasing-mix-table">
+              <thead>
+                <tr><th>Type</th><th>Units</th><th>% Mix</th><th>Avg Rent</th><th>Market Rent</th><th>Loss-to-Lease</th><th>Monthly Rev</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1BR / 1BA</td><td>120</td><td>38.5%</td><td>$1,050</td><td>$1,095</td><td style="color:var(--amber)">($45)</td><td>$126,000</td></tr>
+                <tr><td>2BR / 2BA</td><td>148</td><td>47.4%</td><td>$1,395</td><td>$1,450</td><td style="color:var(--amber)">($55)</td><td>$206,460</td></tr>
+                <tr><td>3BR / 2BA</td><td>44</td><td>14.1%</td><td>$1,685</td><td>$1,740</td><td style="color:var(--amber)">($55)</td><td>$74,140</td></tr>
+                <tr class="total-row"><td><strong>Total / Avg</strong></td><td><strong>312</strong></td><td><strong>100%</strong></td><td><strong>$1,284</strong></td><td><strong>$1,340</strong></td><td style="color:var(--amber)"><strong>($56)</strong></td><td><strong>$400,358</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card"><div class="metric-label">Avg In-Place Rent</div><div class="metric-value" id="ls-inplace-rent">$1,284</div><div class="metric-sub">Per unit / month</div></div>
+          <div class="metric-card"><div class="metric-label">Avg Market Rent</div><div class="metric-value" id="ls-market-rent">$1,340</div><div class="metric-sub">Submarket average</div></div>
+          <div class="metric-card"><div class="metric-label">Loss-to-Lease</div><div class="metric-value" style="color:var(--amber)" id="ls-l2l">$56 / mo</div><div class="metric-sub">4.4% below market</div></div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Lease Expiration Schedule</div>
+          <div class="section-sub">% of leases expiring by month &mdash; concentration risk in May/Jun</div>
+          <div class="lease-exp-grid">
+            <div class="lease-exp-row"><span class="lease-exp-month">Jan</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:6%"></div></div><span class="lease-exp-pct">6.0%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">Feb</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:5%"></div></div><span class="lease-exp-pct">5.0%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">Mar</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:8%"></div></div><span class="lease-exp-pct">8.0%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">Apr</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:9%"></div></div><span class="lease-exp-pct">9.0%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">May</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:13%"></div></div><span class="lease-exp-pct">13.0%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">Jun</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:11.6%"></div></div><span class="lease-exp-pct">11.6%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">Jul</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:10%"></div></div><span class="lease-exp-pct">10.0%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">Aug</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:9%"></div></div><span class="lease-exp-pct">9.0%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">Sep</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:11%"></div></div><span class="lease-exp-pct">11.0%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">Oct</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:8%"></div></div><span class="lease-exp-pct">8.0%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">Nov</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:5%"></div></div><span class="lease-exp-pct">5.0%</span></div>
+            <div class="lease-exp-row"><span class="lease-exp-month">Dec</span><div class="lease-exp-bar-wrap"><div class="lease-exp-bar-fill" style="width:4.4%"></div></div><span class="lease-exp-pct">4.4%</span></div>
+          </div>
+        </div>
+      </div><!-- /page-leasing -->
+
+      <!-- PAGE: UNIT ECONOMICS -->
+      <div class="page" id="page-uniteconomics">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">Unit Economics</div>
+            <h1 class="page-title">Unit Economics</h1>
+            <p class="page-meta">Per-Unit Metrics &middot; 312 Units &middot; KC vs. Market Benchmarks</p>
+          </div>
+        </div>
+
+        <div class="metrics-grid-4">
+          <div class="metric-card metric-card--accent"><div class="metric-label">Price / Unit</div><div class="metric-value" id="ue-price-unit">$96,154</div><div class="metric-sub">$30M &divide; 312 units</div></div>
+          <div class="metric-card"><div class="metric-label">NOI / Unit</div><div class="metric-value" id="ue-noi-unit">$7,159</div><div class="metric-sub">Annual</div></div>
+          <div class="metric-card"><div class="metric-label">Revenue / Unit</div><div class="metric-value" id="ue-revenue-unit">$14,072</div><div class="metric-sub">EGI per unit annually</div></div>
+          <div class="metric-card"><div class="metric-label">OpEx / Unit</div><div class="metric-value" id="ue-opex-unit">$6,913</div><div class="metric-sub">Annual operating cost</div></div>
+          <div class="metric-card"><div class="metric-label">FCF / Unit</div><div class="metric-value" id="ue-fcf-unit">$2,541</div><div class="metric-sub">After debt service</div></div>
+          <div class="metric-card"><div class="metric-label">Loan / Unit</div><div class="metric-value" id="ue-debt-unit">$62,500</div><div class="metric-sub">$19.5M &divide; 312 units</div></div>
+          <div class="metric-card"><div class="metric-label">Equity / Unit</div><div class="metric-value" id="ue-equity-unit">$33,654</div><div class="metric-sub">$10.5M &divide; 312 units</div></div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Kingswood Cove vs. Market Benchmarks</div>
+          <div class="section-sub">Austin MSA Class B multifamily average</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Metric</th><th>Kingswood Cove</th><th>Market Avg (Austin MSA Class B)</th><th>Assessment</th></tr></thead>
+              <tbody>
+                <tr><td>Price / Unit</td><td>$96,154</td><td>$115,000&ndash;$130,000</td><td style="color:var(--emerald)">Below market &mdash; discount acquisition</td></tr>
+                <tr><td>NOI / Unit (Annual)</td><td>$7,159</td><td>$7,800&ndash;$9,200</td><td style="color:var(--amber)">Slightly below &mdash; value-add upside</td></tr>
+                <tr><td>OpEx / Unit (Annual)</td><td>$6,913</td><td>$7,200&ndash;$8,000</td><td style="color:var(--emerald)">In line / slightly favorable</td></tr>
+                <tr><td>OER</td><td>49.1%</td><td>47&ndash;52%</td><td style="color:var(--emerald)">Within typical range</td></tr>
+                <tr><td>Avg In-Place Rent / Mo</td><td>$1,284</td><td>$1,380&ndash;$1,500</td><td style="color:var(--amber)">Below market &mdash; upside opportunity</td></tr>
+                <tr><td>Physical Occupancy</td><td>93.2%</td><td>90&ndash;95%</td><td style="color:var(--emerald)">Competitive</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /page-uniteconomics -->
+
+      <!-- PAGE: DEBT STRUCTURE -->
+      <div class="page" id="page-debt">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">Debt</div>
+            <h1 class="page-title">Debt Structure</h1>
+            <p class="page-meta">Loan Parameters &middot; Coverage Ratios &middot; 5-Year Amortization</p>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Loan Parameters</div>
+          <div class="metrics-grid">
+            <div class="metric-card metric-card--accent"><div class="metric-label">Loan Amount</div><div class="metric-value" id="debt-loan-amt">$19,500,000</div><div class="metric-sub">Senior mortgage</div></div>
+            <div class="metric-card"><div class="metric-label">Loan-to-Value (LTV)</div><div class="metric-value" id="debt-ltv">65.0%</div><div class="metric-sub">$19.5M / $30M</div></div>
+            <div class="metric-card"><div class="metric-label">Interest Rate</div><div class="metric-value" id="debt-rate">6.25%</div><div class="metric-sub">Fixed, 30-yr amortization</div></div>
+            <div class="metric-card"><div class="metric-label">Amortization</div><div class="metric-value" id="debt-amort">30 Years</div><div class="metric-sub">No interest-only period</div></div>
+            <div class="metric-card"><div class="metric-label">Monthly Payment</div><div class="metric-value" id="debt-monthly-pmt">$120,100</div><div class="metric-sub">Principal &amp; interest</div></div>
+            <div class="metric-card"><div class="metric-label">Annual Debt Service</div><div class="metric-value" id="debt-annual-ds">$1,441,200</div><div class="metric-sub">P&amp;I per year</div></div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Coverage Ratios &amp; Key Metrics</div>
+          <div class="metrics-grid">
+            <div class="metric-card metric-card--accent"><div class="metric-label">DSCR</div><div class="metric-value" id="debt-dscr">1.55x</div><div class="metric-sub">NOI / Annual DS &mdash; min 1.25x</div></div>
+            <div class="metric-card"><div class="metric-label">Interest Coverage (ICR)</div><div class="metric-value" id="debt-icr">1.83x</div><div class="metric-sub">NOI / Interest-only payment</div></div>
+            <div class="metric-card"><div class="metric-label">Debt Yield</div><div class="metric-value" id="debt-yield">11.5%</div><div class="metric-sub">NOI / Loan amount</div></div>
+            <div class="metric-card"><div class="metric-label">Debt Constant</div><div class="metric-value" id="debt-constant">7.39%</div><div class="metric-sub">Annual DS / Loan amount</div></div>
+            <div class="metric-card"><div class="metric-label">Break-Even Occupancy</div><div class="metric-value" id="debt-breakeven">75.9%</div><div class="metric-sub">17.3 pt safety margin</div></div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">5-Year Amortization Schedule</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Year</th><th>Beg. Balance</th><th>Principal</th><th>Interest</th><th>Ending Balance</th><th>Cum. Equity Build</th></tr></thead>
+              <tbody id="debt-amort-tbody">
+                <tr><td>Year 1</td><td>$19,500,000</td><td>$222,012</td><td>$1,219,188</td><td>$19,277,988</td><td>$222,012</td></tr>
+                <tr><td>Year 2</td><td>$19,277,988</td><td>$236,041</td><td>$1,205,159</td><td>$19,041,947</td><td>$458,053</td></tr>
+                <tr><td>Year 3</td><td>$19,041,947</td><td>$251,002</td><td>$1,190,198</td><td>$18,790,945</td><td>$709,055</td></tr>
+                <tr><td>Year 4</td><td>$18,790,945</td><td>$266,940</td><td>$1,174,260</td><td>$18,524,005</td><td>$975,995</td></tr>
+                <tr class="total-row"><td>Year 5</td><td>$18,524,005</td><td>$283,903</td><td>$1,157,297</td><td>$18,240,102</td><td>$1,259,898</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /page-debt -->
+
+      <!-- PAGE: VALUATION & EXIT -->
+      <div class="page" id="page-valuation">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">Valuation</div>
+            <h1 class="page-title">Valuation &amp; Exit</h1>
+            <p class="page-meta">5-Year Exit Strategy &middot; Cap Rate Sensitivity &middot; Value-Add Creation</p>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Exit Summary (Year 5)</div>
+          <div class="metrics-grid">
+            <div class="metric-card"><div class="metric-label">Exit Cap Rate</div><div class="metric-value" id="val-exit-cap">7.75%</div><div class="metric-sub">+30 bps above going-in</div></div>
+            <div class="metric-card"><div class="metric-label">Exit NOI (Yr 5)</div><div class="metric-value" id="val-exit-noi">$2,526,572</div><div class="metric-sub">At 2.5% annual growth</div></div>
+            <div class="metric-card metric-card--accent"><div class="metric-label">Exit Value</div><div class="metric-value" id="val-exit-value">$32,600,000</div><div class="metric-sub">Exit NOI / 7.75% cap</div></div>
+            <div class="metric-card"><div class="metric-label">Loan Balance at Exit</div><div class="metric-value" id="val-loan-at-exit">$18,240,102</div><div class="metric-sub">After 5 years of amort.</div></div>
+            <div class="metric-card"><div class="metric-label">Net Proceeds</div><div class="metric-value" id="val-net-proceeds">$14,359,898</div><div class="metric-sub">Exit value less loan payoff</div></div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Value-Add Analysis &mdash; Renovation Program</div>
+          <div class="metrics-grid-4">
+            <div class="metric-card"><div class="metric-label">Base NOI (In-Place)</div><div class="metric-value" id="val-base-noi">$2,233,512</div><div class="metric-sub">Current stabilized NOI</div></div>
+            <div class="metric-card"><div class="metric-label">Renovation Upside</div><div class="metric-value" style="color:var(--emerald)" id="val-reno-upside">$327,060</div><div class="metric-sub">225 units &times; $121 &times; 12</div></div>
+            <div class="metric-card"><div class="metric-label">Total NOI at Exit</div><div class="metric-value" id="val-total-noi">$2,853,632</div><div class="metric-sub">Base + reno + 2.5% growth</div></div>
+            <div class="metric-card metric-card--accent"><div class="metric-label">Value Creation</div><div class="metric-value" id="val-value-creation">$4,220,000</div><div class="metric-sub">Reno NOI uplift / 7.75% cap</div></div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Exit Value Sensitivity &mdash; $M</div>
+          <div class="section-sub">Cap Rate &darr;&nbsp;/&nbsp;NOI Growth &rarr;</div>
+          <div class="sensitivity-wrap">
+            <table class="sensitivity-table" id="val-sensitivity-table">
+              <thead>
+                <tr><th>Cap &darr; / Growth &rarr;</th><th>0.0%</th><th>0.5%</th><th>1.0%</th><th>1.5%</th><th>2.0%</th><th>2.5%</th><th>3.0%</th></tr>
+              </thead>
+              <tbody>
+                <tr><th>7.00%</th><td class="val-mid">$31.9M</td><td class="val-mid">$33.7M</td><td class="val-high">$35.7M</td><td class="val-high">$37.8M</td><td class="val-high">$40.0M</td><td class="val-high">$42.3M</td><td class="val-high">$44.8M</td></tr>
+                <tr><th>7.25%</th><td class="val-mid">$30.8M</td><td class="val-mid">$32.6M</td><td class="val-mid">$34.5M</td><td class="val-high">$36.5M</td><td class="val-high">$38.7M</td><td class="val-high">$40.9M</td><td class="val-high">$43.3M</td></tr>
+                <tr><th>7.50%</th><td class="val-low">$29.8M</td><td class="val-mid">$31.5M</td><td class="val-mid">$33.4M</td><td class="val-mid">$35.4M</td><td class="val-high">$37.4M</td><td class="val-high">$39.6M</td><td class="val-high">$41.9M</td></tr>
+                <tr><th>7.75%</th><td class="val-low">$28.8M</td><td class="val-low">$30.5M</td><td class="val-mid">$32.3M</td><td class="val-mid">$34.2M</td><td class="val-mid">$36.2M</td><td class="val-mid">$38.3M</td><td class="val-high">$40.5M</td></tr>
+                <tr><th>8.00%</th><td class="val-low">$27.9M</td><td class="val-low">$29.6M</td><td class="val-low">$31.3M</td><td class="val-mid">$33.2M</td><td class="val-mid">$35.1M</td><td class="val-mid">$37.1M</td><td class="val-high">$39.3M</td></tr>
+                <tr><th>8.25%</th><td class="val-low">$27.1M</td><td class="val-low">$28.7M</td><td class="val-low">$30.4M</td><td class="val-low">$32.2M</td><td class="val-mid">$34.1M</td><td class="val-mid">$36.0M</td><td class="val-mid">$38.1M</td></tr>
+                <tr><th>8.50%</th><td class="val-low">$26.3M</td><td class="val-low">$27.8M</td><td class="val-low">$29.5M</td><td class="val-low">$31.2M</td><td class="val-low">$33.1M</td><td class="val-mid">$35.0M</td><td class="val-mid">$37.0M</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /page-valuation -->
+
+      <!-- PAGE: MARKET ANALYSIS -->
+      <div class="page" id="page-market">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">Market</div>
+            <h1 class="page-title">Market Analysis</h1>
+            <p class="page-meta">Austin-Round Rock MSA &middot; Round Rock/Pflugerville Submarket</p>
+          </div>
+        </div>
+
+        <div class="market-indicators">
+          <div class="msa-card"><div class="msa-label">Population Growth (YoY)</div><div class="msa-value">3.2%</div><div class="msa-trend">&#128200; Above national avg</div></div>
+          <div class="msa-card"><div class="msa-label">Job Growth (YoY)</div><div class="msa-value">2.8%</div><div class="msa-trend">&#128200; Strong demand driver</div></div>
+          <div class="msa-card"><div class="msa-label">Unemployment Rate</div><div class="msa-value">3.4%</div><div class="msa-trend" style="color:var(--emerald)">&#10003; Below national avg</div></div>
+          <div class="msa-card"><div class="msa-label">Rent Growth (T-12)</div><div class="msa-value">5.1%</div><div class="msa-trend">&#128200; Above national avg</div></div>
+          <div class="msa-card"><div class="msa-label">Submarket Vacancy</div><div class="msa-value">7.8%</div><div class="msa-trend" style="color:var(--amber)">Stable &mdash; monitor supply</div></div>
+          <div class="msa-card"><div class="msa-label">12-Mo Supply Pipeline</div><div class="msa-value">1,847</div><div class="msa-trend" style="color:var(--amber)">&#9888; Monitor absorption</div></div>
+          <div class="msa-card"><div class="msa-label">12-Mo Net Absorption</div><div class="msa-value">2,140</div><div class="msa-trend" style="color:var(--emerald)">&#10003; Exceeds new supply</div></div>
+          <div class="msa-card"><div class="msa-label">Net Absorption vs. Supply</div><div class="msa-value" style="color:var(--emerald)">+293</div><div class="msa-trend" style="color:var(--emerald)">Demand-driven market</div></div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Competitive Set</div>
+          <div class="section-sub">Round Rock / Pflugerville submarket &mdash; comparable Class B multifamily</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Property</th><th>Year Built</th><th>Units</th><th>Occupancy</th><th>Avg Rent</th><th>vs. KC Rent</th></tr></thead>
+              <tbody>
+                <tr><td>Willow Creek</td><td>1994</td><td>284</td><td>94%</td><td>$1,310</td><td style="color:var(--amber)">+$26/mo</td></tr>
+                <tr><td>The Reserve at Round Rock</td><td>2001</td><td>336</td><td>91%</td><td>$1,360</td><td style="color:var(--amber)">+$76/mo</td></tr>
+                <tr><td>Stonegate Commons</td><td>1989</td><td>292</td><td>96%</td><td>$1,285</td><td>+$1/mo</td></tr>
+                <tr><td>Creekside Village</td><td>2008</td><td>260</td><td>89%</td><td>$1,420</td><td style="color:var(--amber)">+$136/mo</td></tr>
+                <tr class="total-row"><td><strong>&#9733; Kingswood Cove</strong></td><td><strong>1987/2019</strong></td><td><strong>312</strong></td><td><strong>93.2%</strong></td><td><strong>$1,284</strong></td><td><strong>&mdash;</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Austin MSA Major Employer Anchors</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Employer</th><th>Sector</th><th>Significance</th></tr></thead>
+              <tbody>
+                <tr><td>Dell Technologies</td><td>Technology</td><td>HQ in Round Rock &mdash; anchor employer, proximity advantage</td></tr>
+                <tr><td>Apple</td><td>Technology</td><td>Austin campus expansion &mdash; major hiring initiative</td></tr>
+                <tr><td>Tesla / Gigafactory</td><td>EV / Manufacturing</td><td>Gigafactory Austin &mdash; thousands of direct/indirect jobs</td></tr>
+                <tr><td>Amazon</td><td>Logistics / Technology</td><td>Major logistics &amp; AWS presence in metro</td></tr>
+                <tr><td>Samsung Semiconductor</td><td>Semiconductor</td><td>$17B expansion in Taylor, TX &mdash; adjacent market</td></tr>
+                <tr><td>State of Texas / UT Austin</td><td>Gov&rsquo;t / Education</td><td>Stable public sector employment base</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /page-market -->
+
+      <!-- PAGE: ESG -->
+      <div class="page" id="page-esg">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">ESG</div>
+            <h1 class="page-title">ESG &amp; Sustainability</h1>
+            <p class="page-meta">Utility Consumption &middot; Enhancement Opportunities &middot; Capital Reserves</p>
+          </div>
+        </div>
+
+        <div class="metrics-grid-4">
+          <div class="metric-card"><div class="metric-label">Water Consumption</div><div class="metric-value" id="esg-water">4.2 gal/day</div><div class="metric-sub">Per unit</div></div>
+          <div class="metric-card"><div class="metric-label">Electricity</div><div class="metric-value" id="esg-electricity">8.1 kWh/day</div><div class="metric-sub">Per unit</div></div>
+          <div class="metric-card"><div class="metric-label">Reserves / Unit</div><div class="metric-value" id="esg-reserves-unit">$282</div><div class="metric-sub">Annual capital reserves</div></div>
+          <div class="metric-card"><div class="metric-label">Annual Reserves</div><div class="metric-value" id="esg-annual-reserves">$88,000</div><div class="metric-sub">Adequate &mdash; verify post-PCA</div></div>
+        </div>
+
+        <div class="esg-opp-grid">
+          <div class="esg-opp-card">
+            <div class="esg-opp-icon">&#9728;&#65039;</div>
+            <div class="esg-opp-title">Solar Panel Installation</div>
+            <div class="esg-opp-desc">180kW rooftop capacity. Capex: ~$280K. Annual savings: ~$42K. 6.7-yr payback. Supports sustainability premium positioning and Texas renewable incentives.</div>
+          </div>
+          <div class="esg-opp-card">
+            <div class="esg-opp-icon">&#128664;</div>
+            <div class="esg-opp-title">EV Charging Stations</div>
+            <div class="esg-opp-desc">20 Level-2 chargers. Capex: ~$60K. Revenue: $12K&ndash;$18K/yr. Amenity differentiator in Austin&rsquo;s tech-worker demographic. Growing renter demand near Tesla corridor.</div>
+          </div>
+          <div class="esg-opp-card">
+            <div class="esg-opp-icon">&#128167;</div>
+            <div class="esg-opp-title">Water Efficiency Upgrades</div>
+            <div class="esg-opp-desc">WaterSense fixtures during unit renos at minimal incremental cost. Estimated 18&ndash;22% reduction. Annual savings: $6K&ndash;$8K. No additional capex beyond scheduled renovation.</div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">ESG Investment Case</div>
+          <p style="font-size:13px;color:var(--text-2);line-height:1.75;margin-bottom:12px">Water usage of 4.2 gallons/unit/day and electricity of 8.1 kWh/unit/day represent tangible efficiency improvement opportunities. No solar or EV charging currently installed &mdash; both present value-add and ESG enhancement opportunities supporting premium positioning in the Austin tech-worker demographic.</p>
+          <p style="font-size:13px;color:var(--text-2);line-height:1.75;margin-bottom:12px">Annual capital reserves of $88,000 ($282/unit) are adequate by current benchmarks but may need to be increased following PCA completion given the 1987 vintage. Industry standard for this age is $300&ndash;$400/unit annually.</p>
+          <p style="font-size:13px;color:var(--text-2);line-height:1.75">Combined ESG capital investment of ~$340,000 (solar + EV) generates estimated $54,000&ndash;$60,000 in annual savings and revenue &mdash; a 15.9%&ndash;17.6% return on ESG investment, above the property&rsquo;s overall cap rate.</p>
+        </div>
+      </div><!-- /page-esg -->
+
+      <!-- PAGE: DUE DILIGENCE -->
+      <div class="page" id="page-diligence">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">Diligence</div>
+            <h1 class="page-title">Due Diligence</h1>
+            <p class="page-meta">Gap Alerts &middot; QA Checklist &middot; Priority Actions &middot; Milestone Tracker</p>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Gap Alerts &amp; Data Issues</div>
+          <div class="alert-list">
+            <div class="alert-item critical">
+              <span class="alert-badge badge-critical">&#128308; CRITICAL</span>
+              <div class="alert-content">
+                <div class="alert-title">Rent Roll Not Provided</div>
+                <div class="alert-desc">Cannot verify individual unit rents or lease expirations. Unit-level detail required for accurate NOI projection and rent roll analysis.</div>
+              </div>
+            </div>
+            <div class="alert-item critical">
+              <span class="alert-badge badge-critical">&#128308; CRITICAL</span>
+              <div class="alert-content">
+                <div class="alert-title">T12 Financials &mdash; Missing Q4 2023</div>
+                <div class="alert-desc">NOI projection basis unclear. Full trailing 12 months required to validate annual expense run rate and seasonal patterns.</div>
+              </div>
+            </div>
+            <div class="alert-item warning">
+              <span class="alert-badge badge-warning">&#128993; WARNING</span>
+              <div class="alert-content">
+                <div class="alert-title">PCA Not Yet Completed</div>
+                <div class="alert-desc">Deferred maintenance estimate of $1.2M is unverified. PCA could materially affect closing conditions and capital reserve requirements.</div>
+              </div>
+            </div>
+            <div class="alert-item warning">
+              <span class="alert-badge badge-warning">&#128993; WARNING</span>
+              <div class="alert-content">
+                <div class="alert-title">Renovation Schedule Unconfirmed</div>
+                <div class="alert-desc">87 units renovated but contractor bids and completion schedule for remaining 225 units not provided. Value-add thesis dependent on execution.</div>
+              </div>
+            </div>
+            <div class="alert-item warning">
+              <span class="alert-badge badge-warning">&#128993; WARNING</span>
+              <div class="alert-content">
+                <div class="alert-title">Utility Sub-Metering Not Confirmed</div>
+                <div class="alert-desc">If master-metered, utilities could represent significant hidden cost exposure and materially impact NOI assumptions.</div>
+              </div>
+            </div>
+            <div class="alert-item clear">
+              <span class="alert-badge badge-clear">&#128994; CLEAR</span>
+              <div class="alert-content">
+                <div class="alert-title">Phase I Environmental &mdash; No RECs</div>
+                <div class="alert-desc">No recognized environmental conditions identified. Phase I completed April 20, 2024. No further investigation recommended.</div>
+              </div>
+            </div>
+            <div class="alert-item clear">
+              <span class="alert-badge badge-clear">&#128994; CLEAR</span>
+              <div class="alert-content">
+                <div class="alert-title">Title Search Completed &mdash; No Encumbrances</div>
+                <div class="alert-desc">Title insurance commitment received. No liens or title issues identified. Clear title transfer anticipated.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Due Diligence QA Checklist</div>
+          <div class="checklist-grid">
+            <label class="check-item checked"><input type="checkbox" checked /> Verify ownership and title</label>
+            <label class="check-item checked"><input type="checkbox" checked /> Confirm zoning (R-5 Multifamily)</label>
+            <label class="check-item checked"><input type="checkbox" checked /> Review T12 operating statements</label>
+            <label class="check-item"><input type="checkbox" /> Obtain full rent roll (unit-level)</label>
+            <label class="check-item"><input type="checkbox" /> Verify PCA report</label>
+            <label class="check-item checked"><input type="checkbox" checked /> Confirm Phase I environmental clear</label>
+            <label class="check-item"><input type="checkbox" /> Review loan documents and terms</label>
+            <label class="check-item"><input type="checkbox" /> Verify tax assessment &amp; protest history</label>
+            <label class="check-item checked"><input type="checkbox" checked /> Confirm insurance coverages</label>
+            <label class="check-item"><input type="checkbox" /> Validate reno scope and contractor bids</label>
+            <label class="check-item checked"><input type="checkbox" checked /> Review lease agreements (sample)</label>
+            <label class="check-item"><input type="checkbox" /> Verify utility consumption data</label>
+            <label class="check-item"><input type="checkbox" /> Confirm management contract terms</label>
+            <label class="check-item"><input type="checkbox" /> Perform submarket rent survey</label>
+            <label class="check-item"><input type="checkbox" /> Validate financial model assumptions</label>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Priority Action Items</div>
+          <ol class="action-list">
+            <li><strong>Obtain complete rent roll</strong> &mdash; Unit-level detail with current rents, lease dates, and concessions. Critical path before LOI execution.</li>
+            <li><strong>Complete Property Condition Assessment (PCA)</strong> &mdash; Engage qualified engineer. Budget for $1.2M deferred maintenance plus 20% contingency.</li>
+            <li><strong>Request T12 for full year 2023</strong> &mdash; Current data missing Q4. Full trailing 12 months needed before hard earnest money goes non-refundable.</li>
+            <li><strong>Validate renovation pipeline &amp; pricing</strong> &mdash; Current bids for 225 units. Confirm $6,200/unit average and validate $121/mo premium against recent lease-up comps.</li>
+            <li><strong>Confirm utility structure</strong> &mdash; Determine if master-metered or sub-metered. If master-metered, remodel utility expense impact to NOI.</li>
+            <li><strong>Review tax assessment history</strong> &mdash; Williamson County assessment trends and any pending protests affecting forward expense budget.</li>
+            <li><strong>Coordinate lender appraisal</strong> &mdash; Align timeline for appraisal order. Ensure comps support $30M / 7.45% cap rate for underwriting.</li>
+          </ol>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">Due Diligence Milestone Tracker</div>
+          <div class="table-wrap">
+            <table class="milestone-table">
+              <thead><tr><th>Milestone</th><th>Due Date</th><th>Assignee</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>LOI Executed</td><td>Apr 15, 2024</td><td>Principal</td><td><span class="badge-status badge-success">&#10003; Complete</span></td></tr>
+                <tr><td>Due Diligence Period</td><td>Apr 15 &ndash; May 15</td><td>All</td><td><span class="badge-status badge-progress">&#8635; In Progress</span></td></tr>
+                <tr><td>PCA Ordered</td><td>Apr 18, 2024</td><td>Analyst</td><td><span class="badge-status badge-success">&#10003; Complete</span></td></tr>
+                <tr><td>Phase I Environmental</td><td>Apr 20, 2024</td><td>Consultant</td><td><span class="badge-status badge-success">&#10003; Complete</span></td></tr>
+                <tr><td>Loan Application Submitted</td><td>Apr 22, 2024</td><td>Capital Mkts</td><td><span class="badge-status badge-progress">&#8635; In Progress</span></td></tr>
+                <tr><td>Full Rent Roll Receipt</td><td>Apr 25, 2024</td><td>Broker</td><td><span class="badge-status badge-pending">&#8987; Pending</span></td></tr>
+                <tr><td>Hard Earnest Money</td><td>May 1, 2024</td><td>Escrow</td><td><span class="badge-status badge-pending">&#8987; Pending</span></td></tr>
+                <tr><td>Appraisal Ordered</td><td>May 5, 2024</td><td>Lender</td><td><span class="badge-status badge-pending">&#8987; Pending</span></td></tr>
+                <tr><td>Commitment Letter</td><td>May 10, 2024</td><td>Lender</td><td><span class="badge-status badge-pending">&#8987; Pending</span></td></tr>
+                <tr><td>Closing</td><td>May 30, 2024</td><td>All</td><td><span class="badge-status badge-pending">&#8987; Pending</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="ic-memo-section">
+          <div class="ic-memo-section-inner">
+            <div>
+              <div class="ic-memo-section-title">Investment Committee Memorandum</div>
+              <p class="ic-memo-section-desc">Generate a complete, formatted IC memo with all deal metrics, risk factors, market analysis, and investment recommendation ready for committee review.</p>
+            </div>
+            <button class="btn-ic-memo" onclick="generateICMemo()">&#128196; Generate Full IC Memo</button>
+          </div>
+        </div>
+
+      </div><!-- /page-diligence -->
+
+      <!-- PAGE: ASK DOCUMENT -->
+      <div class="page" id="page-ask">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-breadcrumb">AI Tools</div>
+            <h1 class="page-title">Ask Document</h1>
+            <p class="page-meta">Kingswood Cove OM &mdash; Natural Language Q&amp;A &amp; Document Intelligence</p>
+          </div>
+        </div>
+
+        <div class="api-key-card">
+          <div class="api-key-label">&#128273; Anthropic API Key <span class="api-optional">(Optional)</span></div>
+          <div class="api-key-row">
+            <input type="password" id="anthropic-key" placeholder="sk-ant-... leave blank to use pre-built OM responses" />
+            <button class="btn-secondary" onclick="saveApiKey()">Save Key</button>
+          </div>
+          <div class="api-key-note">If provided, responses use Claude AI with live OM context. Otherwise, comprehensive pre-built responses are returned instantly.</div>
+        </div>
+
+        <div class="quick-questions">
+          <div class="qq-title">Quick Questions</div>
+          <div class="qq-grid">
+            <button class="qq-btn" onclick="askDocument('What is the current NOI?')">What is the current NOI?</button>
+            <button class="qq-btn" onclick="askDocument('What are the occupancy rates?')">What are the occupancy rates?</button>
+            <button class="qq-btn" onclick="askDocument('Explain the renovation opportunity')">Explain the renovation opportunity</button>
+            <button class="qq-btn" onclick="askDocument('What are the key risk factors?')">What are the key risk factors?</button>
+            <button class="qq-btn" onclick="askDocument('Summarize the debt terms')">Summarize the debt terms</button>
+            <button class="qq-btn" onclick="askDocument('What is the exit strategy?')">What is the exit strategy?</button>
+            <button class="qq-btn" onclick="askDocument('Compare to market comps')">Compare to market comps</button>
+            <button class="qq-btn" onclick="askDocument('What data is missing?')">What data is missing?</button>
+          </div>
+        </div>
+
+        <div class="chat-container">
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-msg assistant">
+              <div class="chat-avatar">&#129302;</div>
+              <div class="chat-bubble">
+                <strong>Kingswood Cove OM Assistant</strong><br>
+                Welcome! I&rsquo;m loaded with the complete Kingswood Cove Offering Memorandum. Ask me anything about this deal &mdash; NOI, occupancy, renovation upside, debt terms, market comps, risk factors, or missing data gaps. Click a quick question above or type your own below.
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-wrap">
+            <input type="text" id="chat-input" placeholder="Ask a question about Kingswood Cove&hellip;"
+                   onkeydown="if(event.key==='Enter' &amp;&amp; this.value.trim()) { askDocument(this.value); }" />
+            <button class="btn-primary" onclick="askDocument(document.getElementById('chat-input').value)">Ask &rarr;</button>
+          </div>
+        </div>
+
+      </div><!-- /page-ask -->
+
+    </main><!-- /main-content -->
+  </div><!-- /view-app -->
+
+</div><!-- /app-shell -->
+
+<!-- IC MEMO MODAL -->
 <div class="modal-overlay" id="ic-memo-modal">
   <div class="modal-container">
     <div class="modal-header">
-      <div>
-        <h2>Investment Committee Memorandum</h2>
-        <div class="modal-header-sub">Kingswood Cove Apartments — Confidential</div>
-      </div>
-      <button class="modal-close" onclick="closeICMemo()">✕</button>
+      <h2>Investment Committee Memorandum</h2>
+      <div class="modal-header-sub">Kingswood Cove Apartments &mdash; Confidential</div>
     </div>
+    <button class="modal-close" onclick="closeICMemo()">&#10005;</button>
     <div class="modal-body" id="ic-memo-content"></div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeICMemo()">Close</button>
-      <button class="btn-primary" onclick="window.print()">🖨 Print / PDF</button>
+      <button class="btn-primary" onclick="window.print()">&#128424; Print / PDF</button>
     </div>
   </div>
 </div>
 
 <script src="app.js"></script>
+
 </body>
 </html>
