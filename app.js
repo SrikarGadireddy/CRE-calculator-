@@ -63,9 +63,15 @@ function tableWrap(title,tableHtml){
 function flashUpdate(id) {
   var el=document.getElementById(id);
   if(!el) return;
+  // Primary: Motion One (if loaded)
   if(typeof Motion!=='undefined'&&Motion.animate){
     Motion.animate(el,{opacity:[0.25,1],scale:[0.94,1]},{duration:0.28,easing:'ease-out'});
+    return;
   }
+  // Fallback: CSS keyframe class toggle
+  el.classList.remove('kpi-flash');
+  void el.offsetWidth; // force reflow
+  el.classList.add('kpi-flash');
 }
 
 function animateTabIn(panelEl) {
@@ -749,7 +755,42 @@ function renderAI(d) {
 }
 
 // ══════════════════════════════════════════════════
+// TAB 11 — Ask Document (Chat + IC Memo)
+// Only rendered once to preserve chat history.
+// ══════════════════════════════════════════════════
+function renderAsk(d) {
+  var h='<div class="page-title">Ask Document</div>'+
+    '<div class="page-sub" id="chat-sub">Upload a document to populate AI context, then ask anything about the deal.</div>';
+  h+='<div id="api-key-note" class="api-key-note"'+(ANTHROPIC_API_KEY?' style="display:none"':'')+'>'+
+    '⚠️ <strong>Demo Mode:</strong> Set <code>ANTHROPIC_API_KEY</code> in app.js for full Claude AI analysis.</div>';
+  h+='<div class="quick-btns">'+
+    '<button class="quick-btn" onclick="askQuestion(\'What is the DSCR and is it acceptable?\')">What\'s the DSCR?</button>'+
+    '<button class="quick-btn" onclick="askQuestion(\'Summarize this deal in 3 bullet points\')">Summarize the deal</button>'+
+    '<button class="quick-btn" onclick="askQuestion(\'What are the top 3 risks for this investment?\')">Top risks</button>'+
+    '<button class="quick-btn" onclick="askQuestion(\'What is the exit strategy and projected return?\')">Exit strategy</button>'+
+    '<button class="quick-btn" onclick="askQuestion(\'How does this property compare to market comps?\')">Compare to comps</button>'+
+    '<button class="quick-btn" onclick="askQuestion(\'What data is missing from this document?\')">Missing data?</button>'+
+    '</div>';
+  h+='<div class="chat-history" id="chat-history"></div>';
+  h+='<div class="chat-input-row">'+
+    '<input type="text" id="chat-input" placeholder="Ask anything about the uploaded property…" onkeydown="if(event.key===\'Enter\')sendChat()">'+
+    '<button class="btn btn-primary" onclick="sendChat()">Send ➤</button>'+
+    '</div>';
+  h+='<div style="margin-top:28px">'+
+    '<div class="section-title">🤖 Investment Committee Memo Generator</div>'+
+    '<p style="font-size:13px;color:var(--muted);margin:10px 0 16px;line-height:1.55">'+
+    (d.propertyName?'Generate a full IC memo for <strong>'+d.propertyName+'</strong> using extracted document data.':
+    'Upload an OM, T12, or Rent Roll first to generate a property-specific IC Memo.')+
+    '</p>'+
+    '<button class="btn btn-purple" onclick="generateMemo()">🤖 Generate Full IC Memo</button>'+
+    '<div id="memo-output"></div>'+
+    '</div>';
+  return h;
+}
+
+// ══════════════════════════════════════════════════
 // RENDER ALL TABS (11 pages)
+// tab-ask is only initialized once to preserve chat history.
 // ══════════════════════════════════════════════════
 function renderAllTabs() {
   setTab('tab-dashboard',  renderDashboard(dealData));
@@ -762,7 +803,13 @@ function renderAllTabs() {
   setTab('tab-market',     renderMarket(dealData));
   setTab('tab-esg',        renderESG(dealData));
   setTab('tab-diligence',  renderDiligence(dealData));
-  setTab('tab-ai',         renderAI(dealData));
+  // Ask tab: render once; re-rendering wipes chat history
+  var askEl=document.getElementById('tab-ask');
+  if(askEl&&!askEl.dataset.initialized){
+    askEl.innerHTML=renderAsk(dealData);
+    askEl.dataset.initialized='1';
+    initChatHistory();
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -799,6 +846,39 @@ function updateCalculations() {
 }
 
 // ══════════════════════════════════════════════════
+// LANDING PAGE TRANSITIONS
+// ══════════════════════════════════════════════════
+var _appEntered = false;
+
+function enterApp() {
+  if (_appEntered) return;
+  _appEntered = true;
+  var landing = document.getElementById('upload-landing');
+  var app     = document.getElementById('app');
+  if (landing) {
+    if (typeof Motion !== 'undefined' && Motion.animate) {
+      Motion.animate(landing, { opacity: [1, 0] }, { duration: 0.3 }).then(function(){
+        landing.style.display = 'none';
+      });
+    } else {
+      landing.style.display = 'none';
+    }
+  }
+  if (app) {
+    app.style.display = 'flex';
+    if (typeof Motion !== 'undefined' && Motion.animate) {
+      Motion.animate(app, { opacity: [0, 1] }, { duration: 0.35 });
+    }
+  }
+}
+
+function showLanding() {
+  _appEntered = false;
+  var landing = document.getElementById('upload-landing');
+  if (landing) landing.style.display = 'flex';
+}
+
+// ══════════════════════════════════════════════════
 // NAVIGATE TO (with Motion One tab-in animation)
 // ══════════════════════════════════════════════════
 function navigateTo(id, btn) {
@@ -814,6 +894,13 @@ function navigateTo(id, btn) {
 
 // Backward-compatible alias
 function switchTab(id, btn){ navigateTo(id, btn); }
+
+function initChatHistory() {
+  var hist = document.getElementById('chat-history');
+  if (hist) hist.innerHTML = '<div class="chat-msg">'+
+    '<div class="chat-msg-role assistant">Assistant</div>'+
+    '<div class="chat-msg-text">Hello! Upload an Offering Memorandum, T12, Rent Roll, or any property document — I will extract the key CRE metrics and populate all 11 analysis modules automatically. Then ask me anything about the deal.</div></div>';
+}
 
 // ══════════════════════════════════════════════════
 // SIDEBAR UPDATE
@@ -1086,6 +1173,7 @@ function applyExtractedData(extracted) {
   updateSidebar();
   seedSliders();
   updateOMContext();
+  enterApp(); // transition from landing page to main app
 
   var fieldsEl=document.getElementById('upload-fields');
   if(fieldsEl){
@@ -1465,13 +1553,8 @@ if(ANTHROPIC_API_KEY){
   if(noteEl) noteEl.style.display='none';
 }
 
-(function(){
-  var hist=document.getElementById('chat-history');
-  if(hist) hist.innerHTML='<div class="chat-msg">'+
-    '<div class="chat-msg-role assistant">Assistant</div>'+
-    '<div class="chat-msg-text">Hello! Upload an Offering Memorandum, T12, Rent Roll, or any property document — I will extract the key CRE metrics and populate all 11 analysis modules automatically. Then ask me anything about the deal.</div></div>';
-})();
-
+// Render all 11 tabs; tab-ask is initialized once (preserving chat history).
+// Chat history greeting is set inside initChatHistory() called from renderAllTabs().
 renderAllTabs();
 updateSidebar();
 recalc();
