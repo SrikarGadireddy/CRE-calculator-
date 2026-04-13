@@ -1058,7 +1058,7 @@ function extractCREData(text) {
   function tryPct(pats){
     for(var i=0;i<pats.length;i++){
       var m=t.match(pats[i]);
-      if(m){var n=parseFloat(m[1]);if(!isNaN(n)&&n>=0&&n<=100) return n;}
+      if(m){var n=parseFloat(m[1]);if(!isNaN(n)&&n>0&&n<=100) return n;}
     }
     return null;
   }
@@ -1273,7 +1273,7 @@ function applyExtractedData(extracted) {
     dealData.capRateExit=dealData.capRateGoing+0.7;
   if(dealData.gpr&&dealData.totalExpenses&&!dealData.noi){
     // Use actual vacancy% if available, else EGI if extracted, else 8% vacancy default
-    var eg=dealData.egi||(dealData.gpr*(1-(dealData.vacancyPct!=null?dealData.vacancyPct:8)/100)+(dealData.otherIncome||0));
+    var eg=dealData.egi||((dealData.gpr*(1-(dealData.vacancyPct!=null?dealData.vacancyPct:8)/100))+(dealData.otherIncome||0));
     dealData.noi=eg-dealData.totalExpenses;
   }
   // Default noiGrowth to 2% if not found (used by calc engine)
@@ -1415,7 +1415,7 @@ function parseExcel(arrayBuffer) {
       if(k.includes('interest rate')||k.includes('note rate')){var r=n>1?n:n*100;if(r>0.5&&r<30) setField('interestRate',r,'Interest Rate');}
       if(k.includes('loan amount')||k.includes('mortgage')||k.includes('loan balance')) setField('loanAmount',n,'Loan Amount');
       if(k.includes('ltv')||k.includes('loan to value')){var ltvN=n>1?n:n*100;if(ltvN>20&&ltvN<100) setField('ltv',ltvN,'LTV');}
-      if(k.includes('purchase price')||k.includes('gross potential rent')||k==='gpr') setField('gpr',n,'GPR');
+      if(k.includes('gross potential rent')||k==='gpr') setField('gpr',n,'GPR');
       if(k.includes('effective gross income')||k==='egi') setField('egi',n,'EGI');
       if(k.includes('total expenses')||k.includes('operating expenses')) setField('totalExpenses',n,'Total Expenses');
       if(k.includes('amortization')||k.includes('amort years')){if(n>=10&&n<=40) setField('amortization',n,'Amortization');}
@@ -1929,7 +1929,7 @@ function renderComparison() {
 }
 
 function clearComparison() {
-  compareDeals = [];
+  compareDeals.splice(0);
   updateCmpBadge();
   setTab('tab-compare', renderComparison());
 }
@@ -1990,6 +1990,7 @@ function exportComparisonCSV() {
 // INIT
 // ══════════════════════════════════════════════════
 if(ANTHROPIC_API_KEY){
+  var noteEl=document.getElementById('api-key-note');
   if(noteEl) noteEl.style.display='none';
 }
 
