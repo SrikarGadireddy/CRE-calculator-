@@ -1680,6 +1680,639 @@ function generateMemo() {
 var compareDeals = []; // [{name, color, data}]
 var CMP_COLORS = ['accent','green','purple','orange','rose'];
 
+// Direct-upload slots for the two-deal deep comparison
+var cmpSlots = [null, null]; // null | {name, status, pct, data}
+var CMP_SLOT_LABELS = ['A', 'B']; // deal labels used throughout the compare UI
+
+// ── Slot helpers ──────────────────────────────────
+function clearCmpSlot(slotIdx) {
+  cmpSlots[slotIdx] = null;
+  setTab('tab-compare', renderComparison());
+}
+
+function addCurrentDealToSlot(slotIdx) {
+  var hasData = dealData.purchasePrice||dealData.noi||dealData.units||dealData.propertyName;
+  if(!hasData){
+    alert('No deal data loaded. Upload a document first or enter values in the Analyst Calc Zone.');
+    return;
+  }
+  var defaultName = dealData.propertyName || ('Deal ' + CMP_SLOT_LABELS[slotIdx]);
+  var name = prompt('Name this deal:', defaultName);
+  if(name===null) return;
+  if(!name.trim()) name = defaultName;
+  cmpSlots[slotIdx] = {
+    name: name.trim(),
+    status: '✅ Loaded from current deal.',
+    pct: 100,
+    data: JSON.parse(JSON.stringify(dealData))
+  };
+  setTab('tab-compare', renderComparison());
+}
+
+function handleCmpSlotDrop(event, slotIdx) {
+  event.preventDefault();
+  var dropEl = event.currentTarget;
+  if(dropEl) dropEl.classList.remove('drag-over');
+  var file = event.dataTransfer.files[0];
+  if(file) processFileForSlot(file, slotIdx);
+}
+
+function handleCmpSlotFileSelect(event, slotIdx) {
+  var file = event.target.files[0];
+  if(file) processFileForSlot(file, slotIdx);
+}
+
+function processFileForSlot(file, slotIdx) {
+  var ext = file.name.split('.').pop().toLowerCase();
+  cmpSlots[slotIdx] = {name: file.name, status: 'Reading file…', pct: 10, data: null};
+  setTab('tab-compare', renderComparison());
+  var reader = new FileReader();
+  reader.onerror = function() {
+    cmpSlots[slotIdx] = {name: file.name, status: '⚠ Could not read file.', pct: 0, data: null};
+    setTab('tab-compare', renderComparison());
+  };
+  reader.onload = function(e) {
+    try {
+      if(ext === 'pdf') {
+        parsePDFForSlot(e.target.result, slotIdx, file.name);
+      } else if(ext === 'xlsx' || ext === 'xls') {
+        parseExcelForSlot(e.target.result, slotIdx, file.name);
+      } else {
+        var extracted = extractCREData(e.target.result);
+        applyExtractedDataToSlot(extracted, slotIdx, file.name);
+      }
+    } catch(err) {
+      cmpSlots[slotIdx] = {name: file.name, status: '⚠ Error: '+err.message, pct: 0, data: null};
+      setTab('tab-compare', renderComparison());
+    }
+  };
+  if(ext==='pdf'||ext==='xlsx'||ext==='xls') reader.readAsArrayBuffer(file);
+  else reader.readAsText(file);
+}
+
+function parsePDFForSlot(arrayBuffer, slotIdx, fileName) {
+  if(typeof pdfjsLib === 'undefined') {
+    cmpSlots[slotIdx] = {name: fileName, status: '⚠ PDF.js not loaded. Try CSV/TXT.', pct: 0, data: null};
+    setTab('tab-compare', renderComparison());
+    return;
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  pdfjsLib.getDocument({data: arrayBuffer}).promise.then(function(pdf) {
+    var total = pdf.numPages, texts = [], done = 0;
+    function getPage(n) {
+      pdf.getPage(n).then(function(page) {
+        page.getTextContent().then(function(tc) {
+          texts.push(tc.items.map(function(i) { return i.str; }).join(' '));
+          done++;
+          cmpSlots[slotIdx] = {name: fileName, status: 'Parsing PDF page '+done+'/'+total+'…', pct: 20+(done/total*60), data: null};
+          setTab('tab-compare', renderComparison());
+          if(done < total) { getPage(n+1); }
+          else {
+            var fullText = texts.join('\n');
+            var extracted = extractCREData(fullText);
+            applyExtractedDataToSlot(extracted, slotIdx, fileName);
+          }
+        });
+      });
+    }
+    getPage(1);
+  }).catch(function(err) {
+    cmpSlots[slotIdx] = {name: fileName, status: '⚠ PDF error: '+err.message, pct: 0, data: null};
+    setTab('tab-compare', renderComparison());
+  });
+}
+
+function parseExcelForSlot(arrayBuffer, slotIdx, fileName) {
+  if(typeof XLSX === 'undefined') {
+    cmpSlots[slotIdx] = {name: fileName, status: '⚠ SheetJS not loaded. Try CSV/TXT.', pct: 0, data: null};
+    setTab('tab-compare', renderComparison());
+    return;
+  }
+  var wb = XLSX.read(new Uint8Array(arrayBuffer), {type: 'array'});
+  var allText = [];
+  wb.SheetNames.forEach(function(name) {
+    allText.push('=== Sheet: '+name+' ===\n'+XLSX.utils.sheet_to_csv(wb.Sheets[name]));
+  });
+  var extracted = extractCREData(allText.join('\n\n'));
+  wb.SheetNames.forEach(function(name) {
+    var rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header: 1});
+    rows.forEach(function(row) {
+      if(!Array.isArray(row)) return;
+      var k = (row[0]||'').toString().toLowerCase().trim();
+      var v = row[1] != null ? row[1] : row[2];
+      if(!k || v == null) return;
+      var n = typeof v === 'number' ? v : parseFloat((v+'').replace(/[$,%]/g,''));
+      if(isNaN(n)) return;
+      function setF(key, val, label) {
+        if(extracted[key]==null){extracted[key]=val;if(label&&extracted.extractedFields.indexOf(label)<0)extracted.extractedFields.push(label);}
+      }
+      if(k.includes('purchase price')||k.includes('asking price')) setF('purchasePrice',n,'Purchase Price');
+      if(k==='noi'||k.includes('net operating income')) setF('noi',n,'NOI');
+      if(k.includes('cap rate')){var p=n>1?n:n*100;if(p>1&&p<20) setF('capRateGoing',p,'Cap Rate');}
+      if(k.includes('exit cap')){var p2=n>1?n:n*100;if(p2>1&&p2<20) setF('capRateExit',p2,'Exit Cap');}
+      if(k.includes('units')||k==='# of units'){if(n>0&&n<50000) setF('units',Math.round(n),'Units');}
+      if(k.includes('occupancy')&&!k.includes('economic')){var p3=n>1?n:n*100;if(p3>30&&p3<=100) setF('physicalOccupancy',p3,'Occupancy');}
+      if(k.includes('economic occupancy')){var p4=n>1?n:n*100;if(p4>30&&p4<=100) setF('economicOccupancy',p4,'Economic Occupancy');}
+      if(k.includes('vacancy')){var p5=n>1?n:n*100;if(p5>=0&&p5<70) setF('vacancyPct',p5,'Vacancy %');}
+      if(k.includes('interest rate')||k.includes('note rate')){var r=n>1?n:n*100;if(r>0.5&&r<30) setF('interestRate',r,'Interest Rate');}
+      if(k.includes('loan amount')||k.includes('mortgage')) setF('loanAmount',n,'Loan Amount');
+      if(k.includes('ltv')||k.includes('loan to value')){var ltvN=n>1?n:n*100;if(ltvN>20&&ltvN<100) setF('ltv',ltvN,'LTV');}
+      if(k.includes('gross potential rent')||k==='gpr') setF('gpr',n,'GPR');
+      if(k.includes('effective gross income')||k==='egi') setF('egi',n,'EGI');
+      if(k.includes('total expenses')||k.includes('operating expenses')) setF('totalExpenses',n,'Total Expenses');
+      if(k.includes('amortization')){if(n>=10&&n<=40) setF('amortization',n,'Amortization');}
+      if(k.includes('loan term')){if(n>=1&&n<=30) setF('loanTerm',n,'Loan Term');}
+      if(k.includes('hold period')){if(n>=1&&n<=20) setF('holdPeriod',n,'Hold Period');}
+      if(k.includes('year built')){if(n>=1900&&n<=2100) setF('yearBuilt',n,'Year Built');}
+      if(k.includes('avg rent')||k.includes('average rent')) setF('avgEffectiveRent',n,'Avg Rent');
+      if(k.includes('market rent')||k.includes('asking rent')) setF('avgMarketRent',n,'Market Rent');
+      if(k.includes('renewal rate')){var rr=n>1?n:n*100;if(rr>0&&rr<=100) setF('renewalRate',rr,'Renewal Rate');}
+      if(k.includes('noi growth')||k.includes('income growth')){var ng=n>1?n:n*100;if(ng>=0&&ng<20) setF('noiGrowth',ng,'NOI Growth');}
+    });
+  });
+  applyExtractedDataToSlot(extracted, slotIdx, fileName);
+}
+
+function applyExtractedDataToSlot(extracted, slotIdx, fileName) {
+  var data = {
+    propertyName:null, location:null, units:null, yearBuilt:null,
+    assetClass:null, strategy:null, purchasePrice:null,
+    gpr:null, vacancyPct:null, otherIncome:null,
+    egi:null, totalExpenses:null, noi:null,
+    capRateGoing:null, capRateExit:null, noiGrowth:null,
+    ltv:null, loanAmount:null, interestRate:null,
+    amortization:null, loanTerm:null, ioPeriod:0, holdPeriod:null,
+    physicalOccupancy:null, economicOccupancy:null,
+    leasedPct:null, avgDaysToLease:null, renewalRate:null,
+    avgEffectiveRent:null, avgMarketRent:null, tradeout:null,
+    unitMix:[], expenses:{}, renovation:{}, market:{}, esg:{},
+    extractedFields:[], missing:[]
+  };
+  Object.keys(extracted).forEach(function(k) {
+    if(extracted[k] !== null && extracted[k] !== undefined) data[k] = extracted[k];
+  });
+  if(!data.physicalOccupancy && data.vacancyPct != null)
+    data.physicalOccupancy = 100 - data.vacancyPct;
+  if(data.vacancyPct == null && data.physicalOccupancy)
+    data.vacancyPct = 100 - data.physicalOccupancy;
+  if(data.purchasePrice && data.noi && !data.capRateGoing)
+    data.capRateGoing = data.noi / data.purchasePrice * 100;
+  if(data.purchasePrice && data.ltv && !data.loanAmount)
+    data.loanAmount = data.purchasePrice * data.ltv / 100;
+  if(data.loanAmount && data.purchasePrice && !data.ltv)
+    data.ltv = data.loanAmount / data.purchasePrice * 100;
+  if(!data.capRateExit && data.capRateGoing)
+    data.capRateExit = data.capRateGoing + 0.7;
+  if(data.gpr && data.totalExpenses && !data.noi) {
+    var eg = data.egi || ((data.gpr * (1 - (data.vacancyPct != null ? data.vacancyPct : 8) / 100)) + (data.otherIncome || 0));
+    data.noi = eg - data.totalExpenses;
+  }
+  if(data.noiGrowth == null) data.noiGrowth = 2;
+  cmpSlots[slotIdx] = {
+    name: data.propertyName || fileName || ('Deal ' + CMP_SLOT_LABELS[slotIdx]),
+    status: '✅ ' + extracted.extractedFields.length + ' fields extracted.',
+    pct: 100,
+    data: data
+  };
+  setTab('tab-compare', renderComparison());
+}
+
+// Render a single upload-slot card (Deal A / Deal B)
+function renderCmpSlotCard(slotIdx) {
+  var label = 'Deal ' + CMP_SLOT_LABELS[slotIdx];
+  var accentClass = slotIdx === 0 ? 'cmp-slot-0' : 'cmp-slot-1';
+  var slot = cmpSlots[slotIdx];
+  var body = '';
+  if(!slot) {
+    body =
+      '<div class="cmp-slot-drop" '+
+        'ondragover="event.preventDefault();this.classList.add(\'drag-over\')" '+
+        'ondragleave="this.classList.remove(\'drag-over\')" '+
+        'ondrop="handleCmpSlotDrop(event,'+slotIdx+')" '+
+        'onclick="document.getElementById(\'cmp-file-'+slotIdx+'\').click()">'+
+          '<div class="cmp-slot-drop-icon">📂</div>'+
+          '<div class="cmp-slot-drop-title">Drop document here</div>'+
+          '<div class="cmp-slot-drop-sub">PDF · Excel (.xlsx) · CSV · TXT</div>'+
+          '<div class="cmp-slot-drop-btn">Choose File</div>'+
+      '</div>'+
+      '<input type="file" id="cmp-file-'+slotIdx+'" accept=".pdf,.xlsx,.xls,.csv,.txt,.text" '+
+        'style="display:none" onchange="handleCmpSlotFileSelect(event,'+slotIdx+')">'+
+      '<div style="text-align:center;margin-top:8px;padding-bottom:14px">'+
+        '<button class="btn btn-secondary" style="font-size:11px;padding:4px 12px" onclick="addCurrentDealToSlot('+slotIdx+')">➕ Use Current Deal</button>'+
+      '</div>';
+  } else if(!slot.data) {
+    body =
+      '<div class="cmp-slot-loading">'+
+        '<div style="font-size:12px;font-weight:600;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(slot.name)+'</div>'+
+        '<div class="cmp-slot-loading-bar"><div class="cmp-slot-loading-fill" style="width:'+Math.round(slot.pct||0)+'%"></div></div>'+
+        '<div class="cmp-slot-loading-msg">'+escHtml(slot.status||'Processing…')+'</div>'+
+      '</div>';
+  } else {
+    var d = slot.data;
+    body =
+      '<div class="cmp-slot-loaded">'+
+        '<div class="cmp-slot-prop-name">'+escHtml(slot.name)+'</div>'+
+        (d.location ? '<div class="cmp-slot-prop-sub">📍 '+escHtml(d.location)+'</div>' : '')+
+        '<div class="cmp-slot-stats">'+
+          (d.purchasePrice ? '<span class="cmp-slot-stat">'+fmt$(d.purchasePrice)+'</span>' : '')+
+          (d.noi ? '<span class="cmp-slot-stat">NOI '+commas(d.noi)+'</span>' : '')+
+          (d.units ? '<span class="cmp-slot-stat">'+d.units+' units</span>' : '')+
+          (d.yearBuilt ? '<span class="cmp-slot-stat">Built '+d.yearBuilt+'</span>' : '')+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--green);margin-top:6px">'+escHtml(slot.status||'')+'</div>'+
+      '</div>'+
+      '<div style="padding:0 14px 12px;text-align:right">'+
+        '<button class="cmp-deal-remove" onclick="clearCmpSlot('+slotIdx+')">✕ Clear Deal</button>'+
+      '</div>';
+  }
+  return '<div class="cmp-upload-card">'+
+    '<div class="cmp-upload-card-header '+accentClass+'">'+label+'</div>'+
+    body+
+  '</div>';
+}
+
+// Compute head-to-head scores (called before rendering so scorecard can appear first)
+function computeSlotScores(slotA, slotB, retA, retB) {
+  var a = slotA.data, b = slotB.data;
+  var scoreA = 0, scoreB = 0;
+  function check(vA, vB, higherBetter) {
+    var hA = vA != null && !isNaN(Number(vA));
+    var hB = vB != null && !isNaN(Number(vB));
+    if(!hA || !hB) return;
+    var nA = Number(vA), nB = Number(vB);
+    if(higherBetter ? nA > nB : nA < nB) scoreA++;
+    else if(higherBetter ? nB > nA : nB < nA) scoreB++;
+  }
+  check(retA.irr, retB.irr, true);
+  check(retA.dscr, retB.dscr, true);
+  check(a.capRateGoing, b.capRateGoing, true);
+  check(retA.coc, retB.coc, true);
+  check(retA.moic, retB.moic, true);
+  check(a.physicalOccupancy, b.physicalOccupancy, true);
+  check(a.noi&&a.units ? a.noi/a.units : null, b.noi&&b.units ? b.noi/b.units : null, true);
+  check(a.ltv, b.ltv, false);
+  check(a.noi&&a.egi ? (a.egi-a.noi)/a.egi*100 : null, b.noi&&b.egi ? (b.egi-b.noi)/b.egi*100 : null, false);
+  return {scoreA: scoreA, scoreB: scoreB};
+}
+
+// Render the full deep-dive analysis section
+function renderDeepAnalysis(slotA, slotB) {
+  var a = slotA.data, b = slotB.data;
+  var retA = computeReturns(a), retB = computeReturns(b);
+  var scores = computeSlotScores(slotA, slotB, retA, retB);
+  var scoreA = scores.scoreA, scoreB = scores.scoreB;
+  var winner = scoreA > scoreB ? 'A' : (scoreB > scoreA ? 'B' : 'tie');
+
+  var html = '<div class="deep-analysis">';
+
+  // ── Scorecard ──────────────────────────────────────
+  html += '<div class="deep-section-title">📊 Overall Scorecard</div>';
+  html += '<div class="deep-scorecard">';
+  function scoreCard(dealLabel, slotObj, score, isWinner, isTie, accentCls) {
+    var badge = isTie
+      ? '<span class="deep-score-badge tie">⚖️ Tied</span>'
+      : isWinner
+        ? '<span class="deep-score-badge win">🏆 Overall Winner</span>'
+        : '<span class="deep-score-badge lose">Runner-up</span>';
+    return '<div class="deep-score-card'+(isWinner?' winner':'')+'">'+
+      '<div class="deep-score-deal">'+dealLabel+'</div>'+
+      '<div class="deep-score-name">'+escHtml(slotObj.name)+'</div>'+
+      '<div class="deep-score-num '+accentCls+'">'+score+'</div>'+
+      '<div class="deep-score-label">categories won</div>'+
+      badge+
+    '</div>';
+  }
+  html += scoreCard('DEAL ' + CMP_SLOT_LABELS[0], slotA, scoreA, winner==='A', winner==='tie', 'cmp-slot-0');
+  html += scoreCard('DEAL ' + CMP_SLOT_LABELS[1], slotB, scoreB, winner==='B', winner==='tie', 'cmp-slot-1');
+  html += '</div>'; // deep-scorecard
+
+  // ── Metric Bars ────────────────────────────────────
+  html += '<div class="deep-section-title">📈 Key Metric Comparison</div>';
+
+  function metricBar(label, vA, vB, fmtFn, higherBetter) {
+    var hasA = vA != null && !isNaN(Number(vA));
+    var hasB = vB != null && !isNaN(Number(vB));
+    if(!hasA && !hasB) return '';
+    var nA = hasA ? Number(vA) : 0;
+    var nB = hasB ? Number(vB) : 0;
+    var winA = hasA && hasB && (higherBetter ? nA > nB : nA < nB);
+    var winB = hasA && hasB && (higherBetter ? nB > nA : nB < nA);
+    function bw(n, other, higher) {
+      var maxV = Math.max(n, other);
+      if(maxV <= 0) return 50;
+      if(higher) return Math.max(6, (n/maxV)*100);
+      var minV = Math.min(n, other);
+      var range = maxV - minV;
+      if(range === 0) return 80;
+      return Math.max(6, 100 - ((n-minV)/range*85));
+    }
+    var wA = (hasA && hasB) ? bw(nA, nB, higherBetter).toFixed(1) : (hasA ? '80' : '0');
+    var wB = (hasA && hasB) ? bw(nB, nA, higherBetter).toFixed(1) : (hasB ? '80' : '0');
+    var clsA = winA ? 'deep-bar-fill-win' : (winB ? 'deep-bar-fill-lose' : 'deep-bar-fill-a');
+    var clsB = winB ? 'deep-bar-fill-win' : (winA ? 'deep-bar-fill-lose' : 'deep-bar-fill-b');
+    return '<div class="deep-metric-row">'+
+      '<div class="deep-metric-label">'+label+'</div>'+
+      '<div class="deep-bar-row">'+
+        '<span class="deep-bar-name cmp-slot-0">A</span>'+
+        '<span class="deep-bar-value">'+fmtFn(hasA?nA:null)+'</span>'+
+        '<div class="deep-bar-track"><div class="deep-bar-fill '+clsA+'" style="width:'+wA+'%"></div></div>'+
+        (winA ? '<span class="deep-bar-winner-tag">▲</span>' : '')+
+      '</div>'+
+      '<div class="deep-bar-row">'+
+        '<span class="deep-bar-name cmp-slot-1">B</span>'+
+        '<span class="deep-bar-value">'+fmtFn(hasB?nB:null)+'</span>'+
+        '<div class="deep-bar-track"><div class="deep-bar-fill '+clsB+'" style="width:'+wB+'%"></div></div>'+
+        (winB ? '<span class="deep-bar-winner-tag">▲</span>' : '')+
+      '</div>'+
+    '</div>';
+  }
+
+  html += metricBar('IRR (Levered)', retA.irr, retB.irr,
+    function(v){return v!=null?v.toFixed(1)+'%':'—';}, true);
+  html += metricBar('DSCR', retA.dscr, retB.dscr,
+    function(v){return v!=null?v.toFixed(2)+'×':'—';}, true);
+  html += metricBar('Going-in Cap Rate', a.capRateGoing, b.capRateGoing,
+    function(v){return v!=null?fmtPct(v,2):'—';}, true);
+  html += metricBar('Cash-on-Cash Y1', retA.coc, retB.coc,
+    function(v){return v!=null?v.toFixed(1)+'%':'—';}, true);
+  html += metricBar('MOIC', retA.moic, retB.moic,
+    function(v){return v!=null?v.toFixed(2)+'×':'—';}, true);
+  html += metricBar('Physical Occupancy', a.physicalOccupancy, b.physicalOccupancy,
+    function(v){return v!=null?fmtPct(v,1):'—';}, true);
+  html += metricBar('NOI / Unit',
+    (a.noi&&a.units) ? a.noi/a.units : null,
+    (b.noi&&b.units) ? b.noi/b.units : null,
+    function(v){return v!=null?commas(v):'—';}, true);
+  html += metricBar('LTV', a.ltv, b.ltv,
+    function(v){return v!=null?fmtPct(v,0):'—';}, false);
+  html += metricBar('Expense Ratio',
+    (a.noi&&a.egi) ? (a.egi-a.noi)/a.egi*100 : null,
+    (b.noi&&b.egi) ? (b.egi-b.noi)/b.egi*100 : null,
+    function(v){return v!=null?fmtPct(v,1):'—';}, false);
+
+  // ── Risk Analysis ──────────────────────────────────
+  html += '<div class="deep-section-title">🚦 Risk Analysis</div>';
+  html += '<div class="deep-risk-grid">';
+
+  function getRiskFlags(d, ret) {
+    var flags = [];
+    if(ret.dscr != null && ret.dscr < 1.10)
+      flags.push({level:'danger', icon:'🚨', text:'Low DSCR ('+ret.dscr.toFixed(2)+'×) — Insufficient debt coverage'});
+    else if(ret.dscr != null && ret.dscr < 1.25)
+      flags.push({level:'warn', icon:'⚠️', text:'Thin DSCR ('+ret.dscr.toFixed(2)+'×) — Limited buffer'});
+    if(d.physicalOccupancy != null && d.physicalOccupancy < 85)
+      flags.push({level:'danger', icon:'🚨', text:'Low occupancy: '+fmtPct(d.physicalOccupancy,1)+' occupied'});
+    else if(d.physicalOccupancy != null && d.physicalOccupancy < 92)
+      flags.push({level:'warn', icon:'⚠️', text:'Moderate vacancy: '+fmtPct(d.physicalOccupancy,1)+' occupied'});
+    if(d.ltv != null && d.ltv > 75)
+      flags.push({level:'danger', icon:'🚨', text:'High leverage: '+fmtPct(d.ltv,0)+' LTV'});
+    else if(d.ltv != null && d.ltv > 70)
+      flags.push({level:'warn', icon:'⚠️', text:'Elevated leverage: '+fmtPct(d.ltv,0)+' LTV'});
+    if(d.capRateGoing != null && d.capRateGoing < 4)
+      flags.push({level:'warn', icon:'⚠️', text:'Compressed cap rate: '+fmtPct(d.capRateGoing,2)});
+    if(ret.irr != null && ret.irr < 8)
+      flags.push({level:'warn', icon:'⚠️', text:'Low projected IRR: '+ret.irr.toFixed(1)+'%'});
+    if(!flags.length)
+      flags.push({level:'ok', icon:'✅', text:'No major risk flags identified'});
+    return flags;
+  }
+
+  function renderRiskCol(dealLabel, slotObj, d, ret) {
+    var flags = getRiskFlags(d, ret);
+    var h = '<div class="deep-risk-col">'+
+      '<div class="deep-risk-col-header">'+dealLabel+' · '+escHtml(slotObj.name)+'</div>';
+    flags.forEach(function(f) {
+      h += '<div class="deep-risk-item '+f.level+'">'+
+        '<span class="deep-risk-icon">'+f.icon+'</span>'+
+        '<span class="deep-risk-text">'+escHtml(f.text)+'</span>'+
+      '</div>';
+    });
+    return h + '</div>';
+  }
+
+  html += renderRiskCol('DEAL ' + CMP_SLOT_LABELS[0], slotA, a, retA);
+  html += renderRiskCol('DEAL ' + CMP_SLOT_LABELS[1], slotB, b, retB);
+  html += '</div>'; // deep-risk-grid
+
+  // ── Full Detail Table ──────────────────────────────
+  html += '<div class="deep-section-title">📋 Full Parameter Comparison</div>';
+  html += renderCmpTableForDeals([
+    {name: slotA.name, color: 'accent', data: slotA.data},
+    {name: slotB.name, color: 'green',  data: slotB.data}
+  ], false);
+
+  // Export / clear buttons
+  html += '<div class="cmp-toolbar" style="margin-top:16px">'+
+    '<button class="btn btn-secondary" onclick="exportSlotComparisonCSV()" style="font-size:12px;padding:6px 14px">📥 Export Comparison CSV</button>'+
+    '<button class="btn btn-secondary" onclick="clearCmpSlot(0);clearCmpSlot(1);" style="font-size:12px;padding:6px 14px">🗑 Clear Both Deals</button>'+
+  '</div>';
+
+  html += '</div>'; // deep-analysis
+  return html;
+}
+
+// Export slot comparison data as CSV
+function exportSlotComparisonCSV() {
+  if(!cmpSlots[0]||!cmpSlots[0].data||!cmpSlots[1]||!cmpSlots[1].data) return;
+  var deals = [cmpSlots[0], cmpSlots[1]];
+  var rets = deals.map(function(s){ return computeReturns(s.data); });
+  var hdrs = ['Parameter'].concat(deals.map(function(s){return s.name;}));
+  function csvCell(v){ return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'; }
+  function csvRow(label, vals){ return [label].concat(vals).map(csvCell).join(','); }
+  function col(key){ return deals.map(function(s){return s.data[key];}); }
+  function colR(key){ return rets.map(function(r){return r[key]!=null?r[key].toFixed(2):''}); }
+  var lines = [hdrs.map(csvCell).join(','),
+    csvRow('Property Name', col('propertyName')),
+    csvRow('Location', col('location')),
+    csvRow('Asset Class', col('assetClass')),
+    csvRow('Units', col('units')),
+    csvRow('Year Built', col('yearBuilt')),
+    csvRow('Purchase Price', col('purchasePrice')),
+    csvRow('NOI', col('noi')),
+    csvRow('Cap Rate %', col('capRateGoing')),
+    csvRow('Exit Cap %', col('capRateExit')),
+    csvRow('GPR', col('gpr')),
+    csvRow('EGI', col('egi')),
+    csvRow('Total Expenses', col('totalExpenses')),
+    csvRow('Loan Amount', col('loanAmount')),
+    csvRow('LTV %', col('ltv')),
+    csvRow('Interest Rate %', col('interestRate')),
+    csvRow('DSCR', colR('dscr')),
+    csvRow('Levered IRR %', colR('irr')),
+    csvRow('MOIC', colR('moic')),
+    csvRow('CoC Y1 %', colR('coc')),
+    csvRow('Debt Yield %', colR('debtYield')),
+    csvRow('Physical Occ %', col('physicalOccupancy')),
+    csvRow('Avg Eff Rent', col('avgEffectiveRent')),
+    csvRow('Avg Market Rent', col('avgMarketRent')),
+    csvRow('NOI Growth %', col('noiGrowth'))
+  ];
+  var blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'cre-deal-comparison-'+(new Date().toISOString().slice(0,10))+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Render a comparison table for any array of {name, color, data} deals
+function renderCmpTableForDeals(deals, showRemoveBtn) {
+  if(!deals.length) return '';
+  var returns = deals.map(function(cd){ return computeReturns(cd.data); });
+
+  function cmpRow(label, vals, fmtFn, opts) {
+    opts = opts||{};
+    var numVals = vals.map(function(v){
+      return (v!=null&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):null;
+    });
+    var valid = numVals.filter(function(v){return v!==null;});
+    var best=null, worst=null;
+    if(!opts.noHighlight && valid.length>=2){
+      var sorted = valid.slice().sort(function(a,b){return a-b;});
+      if(opts.higherIsBetter===false){ best=sorted[0]; worst=sorted[sorted.length-1]; }
+      else { best=sorted[sorted.length-1]; worst=sorted[0]; }
+    }
+    var cells = vals.map(function(v,i){
+      if(v==null||v==='') return '<td class="cmp-val cmp-na">—</td>';
+      var num = numVals[i];
+      var cls = 'cmp-val', badge = '';
+      if(num!==null && best!==null){
+        if(num===best && num!==worst){ cls+=' cmp-best'; badge='<span class="cmp-winner">▲</span>'; }
+        else if(num===worst && num!==best){ cls+=' cmp-worst'; }
+      }
+      return '<td class="'+cls+'">'+(fmtFn?fmtFn(v,i):escHtml(String(v)))+badge+'</td>';
+    });
+    return '<tr><td class="cmp-label-col">'+label+'</td>'+cells.join('')+'</tr>';
+  }
+
+  function sectionRow(title) {
+    return '<tr class="cmp-section-row"><td colspan="'+(deals.length+1)+'">'+title+'</td></tr>';
+  }
+
+  function col(key){ return deals.map(function(cd){return cd.data[key];}); }
+  function colRet(key){ return returns.map(function(r){return r[key];}); }
+
+  var headerCells = deals.map(function(cd,i){
+    var d = cd.data;
+    return '<th class="cmp-deal-header cmp-slot-'+i+'" style="border-top-color:var(--'+cd.color+')">'+
+      '<div class="cmp-deal-name cmp-slot-'+i+'">'+escHtml(cd.name)+'</div>'+
+      (d.location?'<div class="cmp-deal-sub">'+escHtml(d.location)+'</div>':'')+
+      (showRemoveBtn?'<button class="cmp-deal-remove" onclick="removeFromComparison('+i+')">✕ Remove</button>':'')+
+    '</th>';
+  }).join('');
+
+  var rows = '';
+  rows += sectionRow('🏷️ Identity');
+  rows += cmpRow('Property Name',      col('propertyName'),  function(v){return escHtml(v);}, {noHighlight:true});
+  rows += cmpRow('Location',           col('location'),      function(v){return escHtml(v);}, {noHighlight:true});
+  rows += cmpRow('Asset Class',        col('assetClass'),    function(v){return escHtml(v||'—');},{noHighlight:true});
+  rows += cmpRow('Strategy',           col('strategy'),      function(v){return escHtml(v||'—');},{noHighlight:true});
+  rows += cmpRow('Units',              col('units'),         function(v){return v?v.toLocaleString():'—';},{higherIsBetter:true});
+  rows += cmpRow('Year Built',         col('yearBuilt'),     function(v){return v?String(v):'—';},{higherIsBetter:false});
+
+  rows += sectionRow('💰 Financials');
+  rows += cmpRow('Purchase Price',     col('purchasePrice'), function(v){return v?fmt$(v):'—';},{higherIsBetter:false});
+  rows += cmpRow('NOI',                col('noi'),           function(v){return v?commas(v):'—';},{higherIsBetter:true});
+  rows += cmpRow('Going-in Cap Rate',  col('capRateGoing'),  function(v){return v?fmtPct(v,2):'—';},{higherIsBetter:true});
+  rows += cmpRow('Exit Cap Rate',      col('capRateExit'),   function(v){return v?fmtPct(v,2):'—';},{higherIsBetter:false});
+  rows += cmpRow('GPR',                col('gpr'),           function(v){return v?commas(v):'—';},{higherIsBetter:true});
+  rows += cmpRow('EGI',                col('egi'),           function(v){return v?commas(v):'—';},{higherIsBetter:true});
+  rows += cmpRow('Total Expenses',     col('totalExpenses'), function(v){return v?commas(v):'—';},{higherIsBetter:false});
+  rows += cmpRow('Expense Ratio',
+    deals.map(function(cd){
+      var d=cd.data;
+      return (d.totalExpenses&&d.noi)?Math.round(d.totalExpenses/(d.noi+d.totalExpenses)*100):null;
+    }),
+    function(v){return v!=null?v+'%':'—';},{higherIsBetter:false});
+  rows += cmpRow('NOI / Unit',
+    deals.map(function(cd){
+      var d=cd.data;
+      return (d.noi&&d.units)?Math.round(d.noi/d.units):null;
+    }),
+    function(v){return v?commas(v):'—';},{higherIsBetter:true});
+
+  rows += sectionRow('🏦 Debt Structure');
+  rows += cmpRow('Loan Amount',        col('loanAmount'),    function(v){return v?fmt$(v):'—';},{higherIsBetter:false});
+  rows += cmpRow('LTV',                col('ltv'),           function(v){return v?fmtPct(v,0):'—';},{higherIsBetter:false});
+  rows += cmpRow('Interest Rate',      col('interestRate'),  function(v){return v?fmtPct(v,2):'—';},{higherIsBetter:false});
+  rows += cmpRow('Amortization',       col('amortization'),  function(v){return v?v+' yr':'—';},{noHighlight:true});
+  rows += cmpRow('Loan Term',          col('loanTerm'),      function(v){return v?v+' yr':'—';},{noHighlight:true});
+  rows += cmpRow('IO Period',          col('ioPeriod'),      function(v){return v?v+' mo':'—';},{noHighlight:true});
+  rows += cmpRow('Equity Required',
+    deals.map(function(cd){
+      var d=cd.data;
+      if(!d.purchasePrice) return null;
+      return d.purchasePrice-(d.loanAmount||(d.purchasePrice*(d.ltv||65)/100));
+    }),
+    function(v){return v?fmt$(v):'—';},{higherIsBetter:false});
+
+  rows += sectionRow('📈 Returns (Computed)');
+  rows += cmpRow('DSCR',               colRet('dscr'),       function(v){return v?v.toFixed(2)+'×':'—';},{higherIsBetter:true});
+  rows += cmpRow('Levered IRR',        colRet('irr'),        function(v){return v?v.toFixed(1)+'%':'—';},{higherIsBetter:true});
+  rows += cmpRow('MOIC',               colRet('moic'),       function(v){return v?v.toFixed(2)+'×':'—';},{higherIsBetter:true});
+  rows += cmpRow('CoC Return Y1',      colRet('coc'),        function(v){return v?v.toFixed(1)+'%':'—';},{higherIsBetter:true});
+  rows += cmpRow('Debt Yield',         colRet('debtYield'),  function(v){return v?v.toFixed(1)+'%':'—';},{higherIsBetter:true});
+  rows += cmpRow('Projected Exit Value',colRet('exitVal'),   function(v){return v?fmt$(v):'—';},{higherIsBetter:true});
+  rows += cmpRow('Hold Period',        col('holdPeriod'),    function(v){return v?v+' yr':'—';},{noHighlight:true});
+  rows += cmpRow('NOI Growth (ann.)',  col('noiGrowth'),     function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
+
+  rows += sectionRow('🔑 Leasing & Occupancy');
+  rows += cmpRow('Physical Occupancy', col('physicalOccupancy'), function(v){return v?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Vacancy %',          col('vacancyPct'),        function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:false});
+  rows += cmpRow('Economic Occupancy', col('economicOccupancy'), function(v){return v?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Avg Effective Rent', col('avgEffectiveRent'),  function(v){return v?commas(v)+'/mo':'—';},{higherIsBetter:true});
+  rows += cmpRow('Avg Market Rent',    col('avgMarketRent'),     function(v){return v?commas(v)+'/mo':'—';},{higherIsBetter:true});
+  rows += cmpRow('Rent-to-Market Gap',
+    deals.map(function(cd){
+      var d=cd.data;
+      return (d.avgEffectiveRent&&d.avgMarketRent)?
+        Math.round((d.avgMarketRent-d.avgEffectiveRent)/d.avgMarketRent*100):null;
+    }),
+    function(v){return v!=null?(v>0?'+':'')+v+'%':'—';},{higherIsBetter:true});
+  rows += cmpRow('Renewal Rate',       col('renewalRate'),   function(v){return v?fmtPct(v,0):'—';},{higherIsBetter:true});
+  rows += cmpRow('Leased %',           col('leasedPct'),     function(v){return v?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Avg Days to Lease',  col('avgDaysToLease'),function(v){return v?v+' days':'—';},{higherIsBetter:false});
+
+  rows += sectionRow('🗺️ Market');
+  rows += cmpRow('Rent Growth',
+    deals.map(function(cd){return cd.data.market?cd.data.market.rentGrowth:null;}),
+    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Job Growth',
+    deals.map(function(cd){return cd.data.market?cd.data.market.jobGrowth:null;}),
+    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Population Growth',
+    deals.map(function(cd){return cd.data.market?cd.data.market.popGrowth:null;}),
+    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
+  rows += cmpRow('Market Vacancy',
+    deals.map(function(cd){return cd.data.market?cd.data.market.marketVacancy:null;}),
+    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:false});
+
+  rows += sectionRow('🛠️ Value-Add / Renovation');
+  rows += cmpRow('Reno Cost / Unit',
+    deals.map(function(cd){return cd.data.renovation?cd.data.renovation.costPerUnit:null;}),
+    function(v){return v?commas(v):'—';},{higherIsBetter:false});
+  rows += cmpRow('Rent Premium Post-Reno',
+    deals.map(function(cd){return cd.data.renovation?cd.data.renovation.rentPremium:null;}),
+    function(v){return v?commas(v)+'/mo':'—';},{higherIsBetter:true});
+  rows += cmpRow('Units to Renovate',
+    deals.map(function(cd){return cd.data.renovation?cd.data.renovation.unitsRenovated:null;}),
+    function(v){return v!=null?String(v):'—';},{noHighlight:true});
+
+  return '<div class="table-wrap" style="overflow-x:auto">'+
+    '<table class="data-table" style="min-width:600px">'+
+      '<thead><tr>'+
+        '<th style="min-width:180px;background:var(--card2)">Parameter</th>'+
+        headerCells+
+      '</tr></thead>'+
+      '<tbody>'+rows+'</tbody>'+
+    '</table>'+
+  '</div>';
+}
+
 // Deep-clone dealData into the comparison store
 function addToComparison() {
   if(compareDeals.length>=5){
@@ -1756,176 +2389,44 @@ function escHtml(s) {
 
 // Render the full comparison tab
 function renderComparison() {
-  if(!compareDeals.length){
-    return '<div class="page-title">⚖️ Deal Comparison</div>'+
-      '<div class="page-sub">Upload documents and add deals to compare side-by-side across all key parameters.</div>'+
-      '<div class="cmp-empty">'+
-        '<div class="cmp-empty-icon">⚖️</div>'+
-        '<div style="font-weight:700;font-size:16px">No deals added yet</div>'+
-        '<div class="cmp-empty-sub">Upload a document, then click <strong>➕ Add Current Deal to Compare</strong> in the sidebar.<br>You can compare up to 5 deals at once.</div>'+
-      '</div>';
+  var bothSlotsLoaded = cmpSlots[0] && cmpSlots[0].data && cmpSlots[1] && cmpSlots[1].data;
+
+  var html = '<div class="page-title">⚖️ Deal Comparison Analysis</div>';
+  html += '<div class="page-sub">Upload two deal documents for a side-by-side deep-dive comparison with scoring and risk analysis.</div>';
+
+  // ── Direct upload slots (always visible) ──
+  html += '<div class="cmp-upload-grid">';
+  html += renderCmpSlotCard(0);
+  html += renderCmpSlotCard(1);
+  html += '</div>';
+
+  // ── Deep analysis (when both slots are loaded) ──
+  if(bothSlotsLoaded) {
+    html += renderDeepAnalysis(cmpSlots[0], cmpSlots[1]);
   }
 
-  var returns = compareDeals.map(function(cd){ return computeReturns(cd.data); });
-
-  function cmpRow(label, vals, fmtFn, opts) {
-    opts = opts||{};
-    var numVals = vals.map(function(v){
-      return (v!=null&&v!==''&&!isNaN(parseFloat(v)))?parseFloat(v):null;
-    });
-    var valid = numVals.filter(function(v){return v!==null;});
-    var best=null, worst=null;
-    if(!opts.noHighlight && valid.length>=2){
-      var sorted = valid.slice().sort(function(a,b){return a-b;});
-      if(opts.higherIsBetter===false){ best=sorted[0]; worst=sorted[sorted.length-1]; }
-      else { best=sorted[sorted.length-1]; worst=sorted[0]; }
-    }
-    var cells = vals.map(function(v,i){
-      if(v==null||v==='') return '<td class="cmp-val cmp-na">—</td>';
-      var num = numVals[i];
-      var cls = 'cmp-val', badge = '';
-      if(num!==null && best!==null){
-        if(num===best && num!==worst){ cls+=' cmp-best'; badge='<span class="cmp-winner">▲</span>'; }
-        else if(num===worst && num!==best){ cls+=' cmp-worst'; }
-      }
-      return '<td class="'+cls+'">'+(fmtFn?fmtFn(v,i):escHtml(String(v)))+badge+'</td>';
-    });
-    return '<tr><td class="cmp-label-col">'+label+'</td>'+cells.join('')+'</tr>';
-  }
-
-  function sectionRow(title) {
-    return '<tr class="cmp-section-row"><td colspan="'+(compareDeals.length+1)+'">'+title+'</td></tr>';
-  }
-
-  function col(key){ return compareDeals.map(function(cd){return cd.data[key];}); }
-  function colRet(key){ return returns.map(function(r){return r[key];}); }
-
-  var headerCells = compareDeals.map(function(cd,i){
-    var d = cd.data;
-    return '<th class="cmp-deal-header cmp-slot-'+i+'" style="border-top-color:var(--'+cd.color+')">'+
-      '<div class="cmp-deal-name cmp-slot-'+i+'">'+escHtml(cd.name)+'</div>'+
-      (d.location?'<div class="cmp-deal-sub">'+escHtml(d.location)+'</div>':'')+
-      '<button class="cmp-deal-remove" onclick="removeFromComparison('+i+')">✕ Remove</button>'+
-    '</th>';
-  }).join('');
-
-  var rows = '';
-
-  rows += sectionRow('🏷️ Identity');
-  rows += cmpRow('Property Name',      col('propertyName'),  function(v){return escHtml(v);}, {noHighlight:true});
-  rows += cmpRow('Location',           col('location'),      function(v){return escHtml(v);}, {noHighlight:true});
-  rows += cmpRow('Asset Class',        col('assetClass'),    function(v){return escHtml(v||'—');},{noHighlight:true});
-  rows += cmpRow('Strategy',           col('strategy'),      function(v){return escHtml(v||'—');},{noHighlight:true});
-  rows += cmpRow('Units',              col('units'),         function(v){return v?v.toLocaleString():'—';},{higherIsBetter:true});
-  rows += cmpRow('Year Built',         col('yearBuilt'),     function(v){return v?String(v):'—';},{higherIsBetter:false});
-
-  rows += sectionRow('💰 Financials');
-  rows += cmpRow('Purchase Price',     col('purchasePrice'), function(v){return v?fmt$(v):'—';},{higherIsBetter:false});
-  rows += cmpRow('NOI',                col('noi'),           function(v){return v?commas(v):'—';},{higherIsBetter:true});
-  rows += cmpRow('Going-in Cap Rate',  col('capRateGoing'),  function(v){return v?fmtPct(v,2):'—';},{higherIsBetter:true});
-  rows += cmpRow('Exit Cap Rate',      col('capRateExit'),   function(v){return v?fmtPct(v,2):'—';},{higherIsBetter:false});
-  rows += cmpRow('GPR',                col('gpr'),           function(v){return v?commas(v):'—';},{higherIsBetter:true});
-  rows += cmpRow('EGI',                col('egi'),           function(v){return v?commas(v):'—';},{higherIsBetter:true});
-  rows += cmpRow('Total Expenses',     col('totalExpenses'), function(v){return v?commas(v):'—';},{higherIsBetter:false});
-  rows += cmpRow('Expense Ratio',
-    compareDeals.map(function(cd){
-      var d=cd.data;
-      return (d.totalExpenses&&d.noi)?Math.round(d.totalExpenses/(d.noi+d.totalExpenses)*100):null;
-    }),
-    function(v){return v!=null?v+'%':'—';},{higherIsBetter:false});
-  rows += cmpRow('NOI / Unit',
-    compareDeals.map(function(cd){
-      var d=cd.data;
-      return (d.noi&&d.units)?Math.round(d.noi/d.units):null;
-    }),
-    function(v){return v?commas(v):'—';},{higherIsBetter:true});
-
-  rows += sectionRow('🏦 Debt Structure');
-  rows += cmpRow('Loan Amount',        col('loanAmount'),    function(v){return v?fmt$(v):'—';},{higherIsBetter:false});
-  rows += cmpRow('LTV',                col('ltv'),           function(v){return v?fmtPct(v,0):'—';},{higherIsBetter:false});
-  rows += cmpRow('Interest Rate',      col('interestRate'),  function(v){return v?fmtPct(v,2):'—';},{higherIsBetter:false});
-  rows += cmpRow('Amortization',       col('amortization'),  function(v){return v?v+' yr':'—';},{noHighlight:true});
-  rows += cmpRow('Loan Term',          col('loanTerm'),      function(v){return v?v+' yr':'—';},{noHighlight:true});
-  rows += cmpRow('IO Period',          col('ioPeriod'),      function(v){return v?v+' mo':'—';},{noHighlight:true});
-  rows += cmpRow('Equity Required',
-    compareDeals.map(function(cd){
-      var d=cd.data;
-      if(!d.purchasePrice) return null;
-      return d.purchasePrice-(d.loanAmount||(d.purchasePrice*(d.ltv||65)/100));
-    }),
-    function(v){return v?fmt$(v):'—';},{higherIsBetter:false});
-
-  rows += sectionRow('📈 Returns (Computed)');
-  rows += cmpRow('DSCR',               colRet('dscr'),       function(v){return v?v.toFixed(2)+'×':'—';},{higherIsBetter:true});
-  rows += cmpRow('Levered IRR',        colRet('irr'),        function(v){return v?v.toFixed(1)+'%':'—';},{higherIsBetter:true});
-  rows += cmpRow('MOIC',               colRet('moic'),       function(v){return v?v.toFixed(2)+'×':'—';},{higherIsBetter:true});
-  rows += cmpRow('CoC Return Y1',      colRet('coc'),        function(v){return v?v.toFixed(1)+'%':'—';},{higherIsBetter:true});
-  rows += cmpRow('Debt Yield',         colRet('debtYield'),  function(v){return v?v.toFixed(1)+'%':'—';},{higherIsBetter:true});
-  rows += cmpRow('Projected Exit Value',colRet('exitVal'),   function(v){return v?fmt$(v):'—';},{higherIsBetter:true});
-  rows += cmpRow('Hold Period',        col('holdPeriod'),    function(v){return v?v+' yr':'—';},{noHighlight:true});
-  rows += cmpRow('NOI Growth (ann.)',  col('noiGrowth'),     function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
-
-  rows += sectionRow('🔑 Leasing & Occupancy');
-  rows += cmpRow('Physical Occupancy', col('physicalOccupancy'), function(v){return v?fmtPct(v,1):'—';},{higherIsBetter:true});
-  rows += cmpRow('Vacancy %',          col('vacancyPct'),        function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:false});
-  rows += cmpRow('Economic Occupancy', col('economicOccupancy'), function(v){return v?fmtPct(v,1):'—';},{higherIsBetter:true});
-  rows += cmpRow('Avg Effective Rent', col('avgEffectiveRent'),  function(v){return v?commas(v)+'/mo':'—';},{higherIsBetter:true});
-  rows += cmpRow('Avg Market Rent',    col('avgMarketRent'),     function(v){return v?commas(v)+'/mo':'—';},{higherIsBetter:true});
-  rows += cmpRow('Rent-to-Market Gap',
-    compareDeals.map(function(cd){
-      var d=cd.data;
-      return (d.avgEffectiveRent&&d.avgMarketRent)?
-        Math.round((d.avgMarketRent-d.avgEffectiveRent)/d.avgMarketRent*100):null;
-    }),
-    function(v){return v!=null?(v>0?'+':'')+v+'%':'—';},{higherIsBetter:true});
-  rows += cmpRow('Renewal Rate',       col('renewalRate'),   function(v){return v?fmtPct(v,0):'—';},{higherIsBetter:true});
-  rows += cmpRow('Leased %',           col('leasedPct'),     function(v){return v?fmtPct(v,1):'—';},{higherIsBetter:true});
-  rows += cmpRow('Avg Days to Lease',  col('avgDaysToLease'),function(v){return v?v+' days':'—';},{higherIsBetter:false});
-
-  rows += sectionRow('🗺️ Market');
-  rows += cmpRow('Rent Growth',
-    compareDeals.map(function(cd){return cd.data.market?cd.data.market.rentGrowth:null;}),
-    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
-  rows += cmpRow('Job Growth',
-    compareDeals.map(function(cd){return cd.data.market?cd.data.market.jobGrowth:null;}),
-    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
-  rows += cmpRow('Population Growth',
-    compareDeals.map(function(cd){return cd.data.market?cd.data.market.popGrowth:null;}),
-    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:true});
-  rows += cmpRow('Market Vacancy',
-    compareDeals.map(function(cd){return cd.data.market?cd.data.market.marketVacancy:null;}),
-    function(v){return v!=null?fmtPct(v,1):'—';},{higherIsBetter:false});
-
-  rows += sectionRow('🛠️ Value-Add / Renovation');
-  rows += cmpRow('Reno Cost / Unit',
-    compareDeals.map(function(cd){return cd.data.renovation?cd.data.renovation.costPerUnit:null;}),
-    function(v){return v?commas(v):'—';},{higherIsBetter:false});
-  rows += cmpRow('Rent Premium Post-Reno',
-    compareDeals.map(function(cd){return cd.data.renovation?cd.data.renovation.rentPremium:null;}),
-    function(v){return v?commas(v)+'/mo':'—';},{higherIsBetter:true});
-  rows += cmpRow('Units to Renovate',
-    compareDeals.map(function(cd){return cd.data.renovation?cd.data.renovation.unitsRenovated:null;}),
-    function(v){return v!=null?String(v):'—';},{noHighlight:true});
-
-  return '<div class="page-title">⚖️ Deal Comparison</div>'+
-    '<div class="page-sub">'+compareDeals.length+' deal'+(compareDeals.length>1?'s':'')+' compared. '+
-    '<span style="color:var(--green)">▲ green</span> = best value per row · '+
-    '<span style="color:var(--red)">red</span> = worst · '+
-    'Returns are computed from extracted data.</div>'+
-    '<div class="cmp-toolbar">'+
+  // ── Legacy multi-deal table (sidebar "Add to Compare") ──
+  if(compareDeals.length) {
+    html += '<div class="cmp-section-divider"></div>';
+    html += '<div class="deep-section-title" style="margin-top:28px">📊 Multi-Deal Comparison ('+compareDeals.length+' deal'+(compareDeals.length>1?'s':'')+')</div>';
+    html += '<div class="page-sub" style="margin-bottom:16px">'+
+      '<span style="color:var(--green)">▲ green</span> = best per row · '+
+      '<span style="color:var(--red)">red</span> = worst · Returns computed from extracted data.</div>';
+    html += '<div class="cmp-toolbar">'+
       '<button class="btn btn-primary" onclick="addToComparison()" style="font-size:12px;padding:6px 14px">➕ Add Another Deal</button>'+
       '<button class="btn btn-secondary" onclick="clearComparison()" style="font-size:12px;padding:6px 14px">🗑 Remove All</button>'+
       '<button class="btn btn-secondary" onclick="exportComparisonCSV()" style="font-size:12px;padding:6px 14px">📥 Export CSV</button>'+
-    '</div>'+
-    '<div class="table-wrap" style="overflow-x:auto">'+
-      '<table class="data-table" style="min-width:600px">'+
-        '<thead><tr>'+
-          '<th style="min-width:180px;background:var(--card2)">Parameter</th>'+
-          headerCells+
-        '</tr></thead>'+
-        '<tbody>'+rows+'</tbody>'+
-      '</table>'+
     '</div>';
+    html += renderCmpTableForDeals(compareDeals, true);
+  } else if(!bothSlotsLoaded) {
+    html += '<div class="cmp-empty">'+
+      '<div class="cmp-empty-icon">⚖️</div>'+
+      '<div style="font-weight:700;font-size:15px">Upload two deal documents above to start comparing</div>'+
+      '<div class="cmp-empty-sub">Or add deals using <strong>➕ Add Current Deal to Compare</strong> in the sidebar.</div>'+
+    '</div>';
+  }
+
+  return html;
 }
 
 function clearComparison() {
