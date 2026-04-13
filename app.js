@@ -1682,6 +1682,7 @@ var CMP_COLORS = ['accent','green','purple','orange','rose'];
 
 // Direct-upload slots for the two-deal deep comparison
 var cmpSlots = [null, null]; // null | {name, status, pct, data}
+var CMP_SLOT_LABELS = ['A', 'B']; // deal labels used throughout the compare UI
 
 // ── Slot helpers ──────────────────────────────────
 function clearCmpSlot(slotIdx) {
@@ -1695,7 +1696,7 @@ function addCurrentDealToSlot(slotIdx) {
     alert('No deal data loaded. Upload a document first or enter values in the Analyst Calc Zone.');
     return;
   }
-  var defaultName = dealData.propertyName || ('Deal '+(slotIdx===0?'A':'B'));
+  var defaultName = dealData.propertyName || ('Deal ' + CMP_SLOT_LABELS[slotIdx]);
   var name = prompt('Name this deal:', defaultName);
   if(name===null) return;
   if(!name.trim()) name = defaultName;
@@ -1851,19 +1852,25 @@ function applyExtractedDataToSlot(extracted, slotIdx, fileName) {
   Object.keys(extracted).forEach(function(k) {
     if(extracted[k] !== null && extracted[k] !== undefined) data[k] = extracted[k];
   });
-  if(!data.physicalOccupancy && data.vacancyPct != null) data.physicalOccupancy = 100 - data.vacancyPct;
-  if(data.vacancyPct == null && data.physicalOccupancy) data.vacancyPct = 100 - data.physicalOccupancy;
-  if(data.purchasePrice && data.noi && !data.capRateGoing) data.capRateGoing = data.noi / data.purchasePrice * 100;
-  if(data.purchasePrice && data.ltv && !data.loanAmount) data.loanAmount = data.purchasePrice * data.ltv / 100;
-  if(data.loanAmount && data.purchasePrice && !data.ltv) data.ltv = data.loanAmount / data.purchasePrice * 100;
-  if(!data.capRateExit && data.capRateGoing) data.capRateExit = data.capRateGoing + 0.7;
+  if(!data.physicalOccupancy && data.vacancyPct != null)
+    data.physicalOccupancy = 100 - data.vacancyPct;
+  if(data.vacancyPct == null && data.physicalOccupancy)
+    data.vacancyPct = 100 - data.physicalOccupancy;
+  if(data.purchasePrice && data.noi && !data.capRateGoing)
+    data.capRateGoing = data.noi / data.purchasePrice * 100;
+  if(data.purchasePrice && data.ltv && !data.loanAmount)
+    data.loanAmount = data.purchasePrice * data.ltv / 100;
+  if(data.loanAmount && data.purchasePrice && !data.ltv)
+    data.ltv = data.loanAmount / data.purchasePrice * 100;
+  if(!data.capRateExit && data.capRateGoing)
+    data.capRateExit = data.capRateGoing + 0.7;
   if(data.gpr && data.totalExpenses && !data.noi) {
     var eg = data.egi || ((data.gpr * (1 - (data.vacancyPct != null ? data.vacancyPct : 8) / 100)) + (data.otherIncome || 0));
     data.noi = eg - data.totalExpenses;
   }
   if(data.noiGrowth == null) data.noiGrowth = 2;
   cmpSlots[slotIdx] = {
-    name: data.propertyName || fileName || ('Deal ' + (slotIdx === 0 ? 'A' : 'B')),
+    name: data.propertyName || fileName || ('Deal ' + CMP_SLOT_LABELS[slotIdx]),
     status: '✅ ' + extracted.extractedFields.length + ' fields extracted.',
     pct: 100,
     data: data
@@ -1873,7 +1880,7 @@ function applyExtractedDataToSlot(extracted, slotIdx, fileName) {
 
 // Render a single upload-slot card (Deal A / Deal B)
 function renderCmpSlotCard(slotIdx) {
-  var label = slotIdx === 0 ? 'Deal A' : 'Deal B';
+  var label = 'Deal ' + CMP_SLOT_LABELS[slotIdx];
   var accentClass = slotIdx === 0 ? 'cmp-slot-0' : 'cmp-slot-1';
   var slot = cmpSlots[slotIdx];
   var body = '';
@@ -1976,8 +1983,8 @@ function renderDeepAnalysis(slotA, slotB) {
       badge+
     '</div>';
   }
-  html += scoreCard('DEAL A', slotA, scoreA, winner==='A', winner==='tie', 'cmp-slot-0');
-  html += scoreCard('DEAL B', slotB, scoreB, winner==='B', winner==='tie', 'cmp-slot-1');
+  html += scoreCard('DEAL ' + CMP_SLOT_LABELS[0], slotA, scoreA, winner==='A', winner==='tie', 'cmp-slot-0');
+  html += scoreCard('DEAL ' + CMP_SLOT_LABELS[1], slotB, scoreB, winner==='B', winner==='tie', 'cmp-slot-1');
   html += '</div>'; // deep-scorecard
 
   // ── Metric Bars ────────────────────────────────────
@@ -2084,8 +2091,8 @@ function renderDeepAnalysis(slotA, slotB) {
     return h + '</div>';
   }
 
-  html += renderRiskCol('DEAL A', slotA, a, retA);
-  html += renderRiskCol('DEAL B', slotB, b, retB);
+  html += renderRiskCol('DEAL ' + CMP_SLOT_LABELS[0], slotA, a, retA);
+  html += renderRiskCol('DEAL ' + CMP_SLOT_LABELS[1], slotB, b, retB);
   html += '</div>'; // deep-risk-grid
 
   // ── Full Detail Table ──────────────────────────────
