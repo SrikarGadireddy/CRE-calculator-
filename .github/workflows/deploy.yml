@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - copilot/update-kpi-sidebar-tabs
+      - copilot/deploy-en-site-engine
+      - main
   workflow_dispatch:
 
 permissions:
