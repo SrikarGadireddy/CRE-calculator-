@@ -14,778 +14,549 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
-<div class="app-container">
+<div class="app-shell">
 
-  <!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
-  <aside class="sidebar">
+  <!-- ═══════════════════════════════════════════════════════════════════
+       VIEW 1: UPLOAD PAGE  (Landing — no sidebar)
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="view active" id="view-upload">
+    <div class="upload-page">
 
-    <div class="sidebar-brand">
-      <div class="brand-logo">KC</div>
-      <div class="brand-info">
-        <div class="brand-name">Kingswood Cove</div>
-        <div class="brand-sub">Austin TX MSA &nbsp;·&nbsp; 312 Units</div>
-      </div>
-    </div>
+      <!-- Animated gradient background orbs -->
+      <div class="upload-bg-orb upload-bg-orb--1"></div>
+      <div class="upload-bg-orb upload-bg-orb--2"></div>
+      <div class="upload-bg-orb upload-bg-orb--3"></div>
 
-    <div class="data-completeness-bar">
-      <div class="dc-header">
-        <span class="dc-label">Data Completeness</span>
-        <span class="dc-value" id="dc-pct">62%</span>
-      </div>
-      <div class="dc-track"><div class="dc-fill" id="dc-fill-bar" style="width:62%"></div></div>
-    </div>
+      <div class="upload-page-inner">
 
-    <!-- ── Document Upload Zone ── -->
-    <div class="upload-zone">
-      <div class="upload-drop" id="upload-drop"
-           onclick="document.getElementById('file-input').click()"
-           ondragover="event.preventDefault();this.classList.add('drag-over')"
-           ondragleave="this.classList.remove('drag-over')"
-           ondrop="handleDrop(event)">
-        <div class="upload-drop-icon">📂</div>
-        <div class="upload-drop-label">Upload OM / T12 / Rent Roll</div>
-        <div class="upload-drop-sub">PDF (any size), Excel (.xlsx/.xls), CSV, or TXT</div>
-      </div>
-      <input type="file" id="file-input" accept=".pdf,.xlsx,.xls,.csv,.txt,.text"
-             style="display:none" onchange="handleFileSelect(event)">
-    </div>
-    <div class="upload-status" id="upload-status" style="display:none">
-      <div class="upload-status-bar"><div class="upload-status-fill" id="upload-status-fill"></div></div>
-      <div class="upload-file-info">
-        <span class="upload-file-icon" id="upload-file-icon">📄</span>
-        <span class="upload-file-name" id="upload-file-name"></span>
-      </div>
-      <div class="upload-msg" id="upload-msg">Processing…</div>
-      <div class="upload-fields" id="upload-fields"></div>
-    </div>
-
-    <!-- Sidebar Tab Nav (3×3 grid) -->
-    <nav class="sidebar-tabs">
-      <button class="stab active"  data-stab="returns">    <span class="stab-icon">📈</span><span class="stab-label">Returns</span>    </button>
-      <button class="stab"         data-stab="operations"> <span class="stab-icon">⚙️</span><span class="stab-label">Operations</span></button>
-      <button class="stab"         data-stab="leasing">    <span class="stab-icon">🏠</span><span class="stab-label">Leasing</span>    </button>
-      <button class="stab"         data-stab="uniteco">    <span class="stab-icon">🔨</span><span class="stab-label">Unit Econ</span>  </button>
-      <button class="stab"         data-stab="debt">       <span class="stab-icon">💳</span><span class="stab-label">Debt</span>       </button>
-      <button class="stab"         data-stab="valuation">  <span class="stab-icon">💎</span><span class="stab-label">Valuation</span>  </button>
-      <button class="stab"         data-stab="market">     <span class="stab-icon">🌆</span><span class="stab-label">Market</span>     </button>
-      <button class="stab"         data-stab="esg">        <span class="stab-icon">🌱</span><span class="stab-label">ESG</span>        </button>
-      <button class="stab"         data-stab="datacomp">   <span class="stab-icon">✅</span><span class="stab-label">Data</span>       </button>
-    </nav>
-
-    <!-- ─── Sidebar Panels ─── -->
-    <div class="stab-panels">
-
-      <!-- ── Tab 1: Investment Returns ── -->
-      <div class="stab-panel active" id="sp-returns">
-        <div class="panel-title">Investment Returns</div>
-
-        <div class="kpi-card highlight">
-          <div class="kpi-label">5-Yr Projected IRR</div>
-          <div class="kpi-value text-green" id="sk-irr">14.8%</div>
-          <div class="kpi-context">Target ≥13% &nbsp;·&nbsp; ✅ Exceeds</div>
-        </div>
-        <div class="kpi-card highlight">
-          <div class="kpi-label">MOIC</div>
-          <div class="kpi-value text-green" id="sk-moic">1.73x</div>
-          <div class="kpi-context">Target ≥1.5x &nbsp;·&nbsp; ✅ Exceeds</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Cash-on-Cash (Yr 1)</div>
-          <div class="kpi-value" id="sk-coc">6.2%</div>
-          <div class="kpi-context">After debt service</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Equity Multiple</div>
-          <div class="kpi-value" id="sk-em">1.73x</div>
-          <div class="kpi-context">5-year hold</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Going-in Cap</div><div class="kpi-mini-value" id="sk-goingcap">7.45%</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Exit Cap</div><div class="kpi-mini-value" id="sk-exitcap">7.75%</div></div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">LTV</div><div class="kpi-mini-value" id="sk-ltv">65.0%</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">LTC</div><div class="kpi-mini-value" id="sk-ltc">63.8%</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Debt Yield</div>
-          <div class="kpi-value" id="sk-debtyield">11.5%</div>
-          <div class="kpi-context">NOI / Loan Amount</div>
-        </div>
-        <div class="kpi-card editable-kpi">
-          <div class="kpi-label">Purchase Price</div>
-          <div class="kpi-edit-row">
-            <span class="kpi-dollar">$</span>
-            <input type="number" id="sk-price-input" value="30000000" min="20000000" max="50000000" step="100000" title="Edit purchase price" />
+        <!-- Brand header -->
+        <header class="upload-brand">
+          <div class="brand-logo">KC</div>
+          <div class="brand-info">
+            <div class="brand-name">Kingswood Cove</div>
+            <div class="brand-sub">CRE Investment Platform</div>
           </div>
-          <div class="kpi-context">Editable — unlocks live KPI recalc</div>
-        </div>
-      </div><!-- /sp-returns -->
+        </header>
 
-      <!-- ── Tab 2: Operating Performance ── -->
-      <div class="stab-panel" id="sp-operations">
-        <div class="panel-title">Operating Performance</div>
-        <div class="kpi-card highlight">
-          <div class="kpi-label">Net Operating Income</div>
-          <div class="kpi-value text-green" id="sk-noi">$2,233,512</div>
-          <div class="kpi-context">Annual</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">EGI</div><div class="kpi-mini-value">$4.39M</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">GPR</div><div class="kpi-mini-value">$4.80M</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Vacancy &amp; Credit Loss</div>
-          <div class="kpi-value text-red">$412,429</div>
-          <div class="kpi-context">8.6% of GPR</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">OER</div><div class="kpi-mini-value">49.1%</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">NOI Margin</div><div class="kpi-mini-value text-green">50.9%</div></div>
-        </div>
+        <!-- Hero copy -->
+        <h1 class="upload-hero-title">Analyze your deal in&nbsp;seconds</h1>
+        <p class="upload-hero-sub">Upload an Offering Memorandum, T-12, or Rent Roll and let our engine extract every metric automatically.</p>
 
-        <div class="panel-section-title">Expense Breakdown — $2,156,747</div>
-        <div class="expense-table">
-          <div class="exp-row"><span>Payroll</span><span>$612,000</span><span class="exp-pct">28.4%</span></div>
-          <div class="exp-row"><span>Property Tax</span><span>$445,000</span><span class="exp-pct">20.6%</span></div>
-          <div class="exp-row"><span>R&amp;M</span><span>$287,000</span><span class="exp-pct">13.3%</span></div>
-          <div class="exp-row"><span>Insurance</span><span>$198,000</span><span class="exp-pct">9.2%</span></div>
-          <div class="exp-row"><span>Utilities</span><span>$184,000</span><span class="exp-pct">8.5%</span></div>
-          <div class="exp-row"><span>Admin/Other</span><span>$156,000</span><span class="exp-pct">7.2%</span></div>
-          <div class="exp-row"><span>Mgmt Fee</span><span>$131,000</span><span class="exp-pct">6.1%</span></div>
-          <div class="exp-row"><span>Reserves</span><span>$88,000</span><span class="exp-pct">4.1%</span></div>
-          <div class="exp-row"><span>Marketing</span><span>$55,000</span><span class="exp-pct">2.6%</span></div>
-        </div>
-
-        <div class="exp-bar-wrap">
-          <div class="exp-bar-item" style="width:28.4%;background:#3b82f6" title="Payroll 28.4%"></div>
-          <div class="exp-bar-item" style="width:20.6%;background:#8b5cf6" title="Tax 20.6%"></div>
-          <div class="exp-bar-item" style="width:13.3%;background:#06b6d4" title="R&M 13.3%"></div>
-          <div class="exp-bar-item" style="width:9.2%;background:#f59e0b" title="Ins 9.2%"></div>
-          <div class="exp-bar-item" style="width:8.5%;background:#10b981" title="Util 8.5%"></div>
-          <div class="exp-bar-item" style="flex:1;background:#64748b" title="Other"></div>
-        </div>
-      </div><!-- /sp-operations -->
-
-      <!-- ── Tab 3: Leasing & Occupancy ── -->
-      <div class="stab-panel" id="sp-leasing">
-        <div class="panel-title">Leasing &amp; Occupancy</div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Physical Occ.</div><div class="kpi-mini-value text-green">93.2%</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Economic Occ.</div><div class="kpi-mini-value">91.4%</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Units Occupied</div>
-          <div class="kpi-value">291 / 312</div>
-          <div class="occ-bar-wrap"><div class="occ-bar"><div class="occ-fill" style="width:93.2%"></div></div></div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Avg In-Place Rent</div><div class="kpi-mini-value">$1,284</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Avg Market Rent</div><div class="kpi-mini-value">$1,340</div></div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Trade-Out</div><div class="kpi-mini-value text-green">+$56 (+4.4%)</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Loss-to-Lease</div><div class="kpi-mini-value text-amber">-$56/unit</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Concessions</div>
-          <div class="kpi-value">$18,000</div>
-          <div class="kpi-context">Annual</div>
-        </div>
-
-        <div class="panel-section-title">Unit Mix</div>
-        <table class="mini-table">
-          <thead><tr><th>Type</th><th>Units</th><th>Avg Rent</th><th>% Mix</th></tr></thead>
-          <tbody>
-            <tr><td>1BR/1BA</td><td>120</td><td>$1,050</td><td>38.5%</td></tr>
-            <tr><td>2BR/2BA</td><td>148</td><td>$1,395</td><td>47.4%</td></tr>
-            <tr><td>3BR/2BA</td><td>44</td><td>$1,685</td><td>14.1%</td></tr>
-          </tbody>
-        </table>
-
-        <div class="panel-section-title">Lease Expirations (12-Month)</div>
-        <table class="mini-table">
-          <thead><tr><th>Month</th><th>Units</th><th>%</th></tr></thead>
-          <tbody>
-            <tr><td>Jan</td><td>12</td><td>4.1%</td></tr>
-            <tr><td>Feb</td><td>8</td><td>2.7%</td></tr>
-            <tr><td>Mar</td><td>22</td><td>7.6%</td></tr>
-            <tr><td>Apr</td><td>31</td><td>10.6%</td></tr>
-            <tr><td>May</td><td>38</td><td>13.0%</td></tr>
-            <tr><td>Jun</td><td>34</td><td>11.6%</td></tr>
-            <tr><td>Jul</td><td>28</td><td>9.6%</td></tr>
-            <tr><td>Aug</td><td>25</td><td>8.6%</td></tr>
-            <tr><td>Sep</td><td>32</td><td>11.0%</td></tr>
-            <tr><td>Oct</td><td>27</td><td>9.2%</td></tr>
-            <tr><td>Nov</td><td>18</td><td>6.2%</td></tr>
-            <tr><td>Dec</td><td>16</td><td>5.5%</td></tr>
-          </tbody>
-        </table>
-      </div><!-- /sp-leasing -->
-
-      <!-- ── Tab 4: Unit Economics ── -->
-      <div class="stab-panel" id="sp-uniteco">
-        <div class="panel-title">Unit Economics</div>
-        <div class="kpi-card highlight">
-          <div class="kpi-label">Renovation ROI</div>
-          <div class="kpi-value text-green">23.4%</div>
-          <div class="kpi-context">Avg $6,200 spend → $121/mo premium</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Avg Reno Spend</div><div class="kpi-mini-value">$6,200</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Rent Premium</div><div class="kpi-mini-value">$121/mo</div></div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Payback Period</div><div class="kpi-mini-value">51.2 mo.</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Renovated Units</div><div class="kpi-mini-value">87 / 312</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Remaining Opportunity</div>
-          <div class="kpi-value">225 units</div>
-          <div class="kpi-context">72.1% of portfolio untouched</div>
-        </div>
-        <div class="reno-progress">
-          <div class="rp-track"><div class="rp-fill" style="width:27.9%"></div></div>
-          <div class="rp-labels"><span>87 renovated</span><span>225 remaining</span></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Add'l Annual Income (all reno)</div>
-          <div class="kpi-value text-green">$327,060</div>
-          <div class="kpi-context">225 units × $121/mo × 12</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Value Creation at Exit</div>
-          <div class="kpi-value text-green">$4.2M</div>
-          <div class="kpi-context">$327K NOI uplift ÷ 7.75% cap</div>
-        </div>
-
-        <div class="panel-section-title">Unit Type vs. Market Comps</div>
-        <table class="mini-table">
-          <thead><tr><th>Type</th><th>In-Place</th><th>Market</th><th>Gap</th></tr></thead>
-          <tbody>
-            <tr><td>1BR/1BA</td><td>$1,050</td><td>$1,095</td><td class="text-amber">-$45</td></tr>
-            <tr><td>2BR/2BA</td><td>$1,395</td><td>$1,450</td><td class="text-amber">-$55</td></tr>
-            <tr><td>3BR/2BA</td><td>$1,685</td><td>$1,740</td><td class="text-amber">-$55</td></tr>
-          </tbody>
-        </table>
-      </div><!-- /sp-uniteco -->
-
-      <!-- ── Tab 5: Credit & Debt Service ── -->
-      <div class="stab-panel" id="sp-debt">
-        <div class="panel-title">Credit &amp; Debt Service</div>
-        <div class="kpi-card highlight">
-          <div class="kpi-label">DSCR</div>
-          <div class="kpi-value text-green" id="sk-dscr">1.50x</div>
-          <div class="kpi-context">Min 1.25x required &nbsp;·&nbsp; ✅ Pass</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">ICR</div><div class="kpi-mini-value text-green">1.98x</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Debt Constant</div><div class="kpi-mini-value">7.64%</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Break-Even Occupancy</div>
-          <div class="kpi-value">72.3%</div>
-          <div class="kpi-context">Safety margin: 20.9 pts above break-even</div>
-        </div>
-
-        <div class="panel-section-title">Loan Details</div>
-        <div class="detail-list">
-          <div class="detail-row"><span>Loan Amount</span><span>$19,500,000</span></div>
-          <div class="detail-row"><span>Interest Rate</span><span>6.25% Fixed</span></div>
-          <div class="detail-row"><span>Amortization</span><span>30 Years</span></div>
-          <div class="detail-row"><span>IO Period</span><span>None</span></div>
-          <div class="detail-row"><span>Annual Debt Svc.</span><span>$1,489,200</span></div>
-          <div class="detail-row"><span>Monthly Payment</span><span>$124,100</span></div>
-          <div class="detail-row hl-row"><span>Free Cash Flow</span><span class="text-green">$744,312</span></div>
-          <div class="detail-row"><span>Global DSCR</span><span>N/A</span></div>
-        </div>
-      </div><!-- /sp-debt -->
-
-      <!-- ── Tab 6: Valuation & Exit ── -->
-      <div class="stab-panel" id="sp-valuation">
-        <div class="panel-title">Valuation &amp; Exit</div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Going-in Cap</div><div class="kpi-mini-value">7.45%</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Exit Cap (Yr 5)</div><div class="kpi-mini-value">7.75%</div></div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Purchase Price</div><div class="kpi-mini-value">$30.0M</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Value / Unit</div><div class="kpi-mini-value">$96,154</div></div>
-        </div>
-        <div class="kpi-card highlight">
-          <div class="kpi-label">Exit Value (Yr 5)</div>
-          <div class="kpi-value text-green">$35,200,000</div>
-          <div class="kpi-context">$112,821 / unit</div>
-        </div>
-        <div class="kpi-row">
-          <div class="kpi-mini"><div class="kpi-mini-label">Gross Profit</div><div class="kpi-mini-value text-green">$5.2M</div></div>
-          <div class="kpi-mini"><div class="kpi-mini-label">Net Proceeds</div><div class="kpi-mini-value text-green">~$8.1M</div></div>
-        </div>
-
-        <div class="panel-section-title">Exit Sensitivity — Value ($M) &nbsp;[Cap Rate ↓ / NOI Growth →]</div>
-        <div class="sensitivity-wrap">
-          <table class="sensitivity-table" id="sensitivity-table"></table>
-        </div>
-      </div><!-- /sp-valuation -->
-
-      <!-- ── Tab 7: Market & Portfolio ── -->
-      <div class="stab-panel" id="sp-market">
-        <div class="panel-title">Market &amp; Portfolio</div>
-        <div class="detail-list">
-          <div class="detail-row"><span>MSA</span><span>Austin-Round Rock, TX</span></div>
-          <div class="detail-row"><span>Submarket</span><span>Round Rock/Pflugerville</span></div>
-          <div class="detail-row hl-row"><span>Pop. Growth (YoY)</span><span class="text-green">+3.2%</span></div>
-          <div class="detail-row"><span>Job Growth (YoY)</span><span class="text-green">+2.8%</span></div>
-          <div class="detail-row"><span>Unemployment</span><span>3.4%</span></div>
-          <div class="detail-row hl-row"><span>Rent Growth (T12)</span><span class="text-green">+5.1%</span></div>
-          <div class="detail-row"><span>Submarket Vacancy</span><span>7.8%</span></div>
-          <div class="detail-row"><span>New Supply (12 mo.)</span><span class="text-amber">1,847 units</span></div>
-          <div class="detail-row"><span>Absorption (12 mo.)</span><span class="text-green">2,140 units</span></div>
-        </div>
-
-        <div class="panel-section-title">Competitive Set</div>
-        <table class="mini-table">
-          <thead><tr><th>Property</th><th>Occ.</th><th>Avg Rent</th><th>Yr Blt</th></tr></thead>
-          <tbody>
-            <tr><td>Willow Creek</td><td>94%</td><td>$1,310</td><td>1994</td></tr>
-            <tr><td>Reserve at RR</td><td>91%</td><td>$1,360</td><td>2001</td></tr>
-            <tr><td>Stonegate Commons</td><td>96%</td><td>$1,285</td><td>1989</td></tr>
-            <tr><td>Creekside Village</td><td>89%</td><td>$1,420</td><td>2008</td></tr>
-            <tr class="comp-subject"><td>★ Kingswood Cove</td><td>93.2%</td><td>$1,284</td><td>1987</td></tr>
-          </tbody>
-        </table>
-
-        <div class="panel-section-title">Absorption vs. Supply</div>
-        <div class="abs-chart">
-          <div class="abs-bar-wrap">
-            <div class="abs-bar supply" style="width:86.3%" title="New Supply: 1,847 units"></div>
-            <span class="abs-label">Supply 1,847</span>
+        <!-- Glassmorphism upload card -->
+        <div class="upload-glass-card">
+          <div class="upload-drop" id="upload-drop"
+               onclick="document.getElementById('file-input').click()"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="handleDrop(event)">
+            <div class="upload-drop-icon">
+              <svg width="56" height="56" viewBox="0 0 56 56" fill="none"><rect x="4" y="18" width="48" height="34" rx="6" stroke="currentColor" stroke-width="2.5"/><path d="M28 10v24m0 0l-9-9m9 9l9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="upload-drop-label">Drop files here or click to browse</div>
+            <div class="upload-drop-sub">PDF (any size) · Excel (.xlsx/.xls) · CSV · TXT</div>
           </div>
-          <div class="abs-bar-wrap">
-            <div class="abs-bar absorption" style="width:100%" title="Absorption: 2,140 units"></div>
-            <span class="abs-label">Abs. 2,140</span>
+          <input type="file" id="file-input" accept=".pdf,.xlsx,.xls,.csv,.txt,.text"
+                 style="display:none" onchange="handleFileSelect(event)">
+
+          <!-- Upload status (hidden until file is selected) -->
+          <div class="upload-status" id="upload-status" style="display:none">
+            <div class="upload-status-bar"><div class="upload-status-fill" id="upload-status-fill"></div></div>
+            <div class="upload-file-info">
+              <span class="upload-file-icon" id="upload-file-icon">📄</span>
+              <span class="upload-file-name" id="upload-file-name"></span>
+            </div>
+            <div class="upload-msg" id="upload-msg">Processing…</div>
+            <div class="upload-fields" id="upload-fields"></div>
           </div>
         </div>
-      </div><!-- /sp-market -->
 
-      <!-- ── Tab 8: ESG & Risk ── -->
-      <div class="stab-panel" id="sp-esg">
-        <div class="panel-title">ESG &amp; Risk</div>
+        <!-- Skip link -->
+        <button class="upload-skip-btn" data-navigate="dashboard" onclick="navigateTo('dashboard')">
+          Skip to Dashboard →
+        </button>
 
-        <div class="panel-section-title">Environmental</div>
-        <div class="detail-list">
-          <div class="detail-row"><span>Water Usage</span><span>4.2 gal/unit/day</span></div>
-          <div class="detail-row"><span>Electricity</span><span>8.1 kWh/unit/day</span></div>
-          <div class="detail-row"><span>Solar Installed</span><span class="text-amber">None</span></div>
-          <div class="detail-row"><span>EV Charging</span><span class="text-amber">0 stations</span></div>
-          <div class="detail-row hl-row"><span>Phase I</span><span class="text-green">Clear ✅</span></div>
-          <div class="detail-row"><span>Phase II</span><span class="text-amber">Not Ordered</span></div>
+        <!-- Trust badges -->
+        <div class="upload-features">
+          <div class="upload-feature">
+            <span class="upload-feature-icon">⚡</span>
+            <span>Instant KPI extraction</span>
+          </div>
+          <div class="upload-feature">
+            <span class="upload-feature-icon">🔒</span>
+            <span>Data stays in-browser</span>
+          </div>
+          <div class="upload-feature">
+            <span class="upload-feature-icon">📊</span>
+            <span>Live scenario modeling</span>
+          </div>
         </div>
 
-        <div class="panel-section-title">Capital &amp; Reserves</div>
-        <div class="detail-list">
-          <div class="detail-row"><span>Annual Reserves</span><span>$88,000</span></div>
-          <div class="detail-row"><span>Reserve / Unit</span><span>$282/yr</span></div>
-          <div class="detail-row"><span>Reserve Balance</span><span>$312,000</span></div>
-          <div class="detail-row"><span>Balance / Unit</span><span>$1,000</span></div>
-          <div class="detail-row hl-row"><span>PCA Status</span><span class="text-amber">Pending ⚠️</span></div>
-          <div class="detail-row"><span>Deferred Maint.</span><span class="text-red">$1.2M est.</span></div>
+      </div><!-- /upload-page-inner -->
+    </div><!-- /upload-page -->
+  </div><!-- /view-upload -->
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       VIEW 2: APP SHELL  (post-upload — sidebar + pages)
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="view" id="view-app">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">KC</div>
+        <div class="brand-info">
+          <div class="brand-name">Kingswood Cove</div>
+          <div class="brand-sub">Austin TX MSA · 312 Units</div>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="sidebar-nav">
+        <button class="nav-link active" data-page="dashboard">
+          <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
+        </button>
+        <button class="nav-link" data-page="ai">
+          <span class="nav-icon">🤖</span><span class="nav-label">AI Recommendation</span>
+        </button>
+        <button class="nav-link" data-page="ask">
+          <span class="nav-icon">💬</span><span class="nav-label">Ask Document</span>
+        </button>
+      </nav>
+
+      <!-- Data completeness (compact) -->
+      <div class="data-completeness-bar">
+        <div class="dc-header">
+          <span class="dc-label">Data Completeness</span>
+          <span class="dc-value" id="dc-pct">62%</span>
+        </div>
+        <div class="dc-track"><div class="dc-fill" id="dc-fill-bar" style="width:62%"></div></div>
+      </div>
+
+      <!-- Uploaded file indicator -->
+      <div class="sidebar-file-indicator" id="sidebar-file-indicator" style="display:none">
+        <span class="sfi-icon">📄</span>
+        <span class="sfi-name" id="sidebar-file-name">—</span>
+      </div>
+
+      <!-- New upload button -->
+      <button class="sidebar-upload-btn" onclick="navigateTo('upload')">＋ New Upload</button>
+    </aside>
+
+    <!-- ── Main Content ── -->
+    <main class="main-content">
+
+      <!-- ═══ DASHBOARD PAGE ═══ -->
+      <div class="page active" id="page-dashboard">
+
+        <div class="page-header">
+          <h1>Investment Dashboard</h1>
+          <p class="page-subtitle">Kingswood Cove Apartments — Austin TX MSA · 312 Units</p>
         </div>
 
-        <div class="panel-section-title">Risk &amp; Insurance</div>
-        <div class="detail-list">
-          <div class="detail-row"><span>Insurance Coverage</span><span>$32M replacement</span></div>
-          <div class="detail-row hl-row"><span>Flood Zone</span><span class="text-green">X (minimal) ✅</span></div>
-          <div class="detail-row"><span>Seismic Zone</span><span>N/A</span></div>
+        <!-- KPI Hero Grid -->
+        <div class="kpi-hero-grid">
+          <div class="kpi-hero-card kpi-hero-card--accent" style="--delay:.05s">
+            <div class="kpi-hero-label">5-Yr Projected IRR</div>
+            <div class="kpi-hero-value" id="sk-irr">14.8%</div>
+            <div class="kpi-hero-context">Target ≥13%</div>
+          </div>
+          <div class="kpi-hero-card" style="--delay:.1s">
+            <div class="kpi-hero-label">MOIC</div>
+            <div class="kpi-hero-value" id="sk-moic">1.73x</div>
+            <div class="kpi-hero-context">Target ≥1.5x</div>
+          </div>
+          <div class="kpi-hero-card" style="--delay:.15s">
+            <div class="kpi-hero-label">Cash-on-Cash</div>
+            <div class="kpi-hero-value" id="sk-coc">6.2%</div>
+            <div class="kpi-hero-context">Year 1 after debt svc</div>
+          </div>
+          <div class="kpi-hero-card" style="--delay:.2s">
+            <div class="kpi-hero-label">DSCR</div>
+            <div class="kpi-hero-value" id="sk-dscr">1.50x</div>
+            <div class="kpi-hero-context">Min 1.25x required</div>
+          </div>
+          <div class="kpi-hero-card" style="--delay:.25s">
+            <div class="kpi-hero-label">Net Operating Income</div>
+            <div class="kpi-hero-value" id="sk-noi">$2,233,512</div>
+            <div class="kpi-hero-context">Annual</div>
+          </div>
+          <div class="kpi-hero-card" style="--delay:.3s">
+            <div class="kpi-hero-label">Going-in Cap Rate</div>
+            <div class="kpi-hero-value" id="sk-goingcap">7.45%</div>
+            <div class="kpi-hero-context">NOI ÷ Price</div>
+          </div>
+          <div class="kpi-hero-card kpi-hero-card--accent" style="--delay:.35s">
+            <div class="kpi-hero-label">Exit Value (Yr 5)</div>
+            <div class="kpi-hero-value" id="sk-exitcap">7.75%</div>
+            <div class="kpi-hero-context">Exit cap rate</div>
+          </div>
         </div>
-      </div><!-- /sp-esg -->
 
-      <!-- ── Tab 9: Data Completeness ── -->
-      <div class="stab-panel" id="sp-datacomp">
-        <div class="panel-title">Data Completeness</div>
-        <div class="dc-overall">
-          <div class="dc-circle">62%</div>
-          <div class="dc-desc">62 of 100 required data fields populated across 5 categories</div>
+        <!-- Secondary KPIs -->
+        <div class="kpi-secondary-row">
+          <div class="kpi-sec-chip"><span class="kpi-sec-label">Equity Multiple</span><span class="kpi-sec-value" id="sk-em">1.73x</span></div>
+          <div class="kpi-sec-chip"><span class="kpi-sec-label">LTV</span><span class="kpi-sec-value" id="sk-ltv">65.0%</span></div>
+          <div class="kpi-sec-chip"><span class="kpi-sec-label">LTC</span><span class="kpi-sec-value" id="sk-ltc">63.8%</span></div>
+          <div class="kpi-sec-chip"><span class="kpi-sec-label">Debt Yield</span><span class="kpi-sec-value" id="sk-debtyield">11.5%</span></div>
         </div>
-        <div class="dc-categories">
-          <div class="dc-cat">
-            <div class="dc-cat-header"><span class="dc-cat-title">Financial Data</span><span class="dc-cat-score score-amber">4/6</span></div>
-            <div class="dc-items">
-              <div class="dc-item ok">✅ T12 Operating Statement (partial)</div>
-              <div class="dc-item ok">✅ Current Year Budget</div>
-              <div class="dc-item ok">✅ NOI / Expense Summary</div>
-              <div class="dc-item ok">✅ Expense Breakdown</div>
-              <div class="dc-item missing">❌ Full Rent Roll (unit-level)</div>
-              <div class="dc-item missing">❌ T12 Q4 2023 missing</div>
+
+        <!-- Editable Purchase Price -->
+        <div class="kpi-edit-strip">
+          <span class="kpi-edit-label">Purchase Price</span>
+          <span class="kpi-dollar">$</span>
+          <input type="number" id="sk-price-input" value="30000000" min="20000000" max="50000000" step="100000" title="Edit purchase price" />
+          <span class="kpi-edit-hint">Editable — live KPI recalc</span>
+        </div>
+
+        <!-- Document Summary Section -->
+        <div class="dash-section-card">
+          <h2 class="dash-section-title">📋 Document Summary</h2>
+          <div class="om-summary-grid">
+            <div class="om-kpi"><span>Property</span><strong>Kingswood Cove Apts.</strong></div>
+            <div class="om-kpi"><span>Location</span><strong>Round Rock, TX</strong></div>
+            <div class="om-kpi"><span>Units</span><strong>312</strong></div>
+            <div class="om-kpi"><span>Year Built / Reno</span><strong>1987 / 2019</strong></div>
+            <div class="om-kpi"><span>Acquisition Year</span><strong>2024</strong></div>
+            <div class="om-kpi"><span>Purchase Price</span><strong>$30,000,000</strong></div>
+            <div class="om-kpi"><span>Price / Unit</span><strong>$96,154</strong></div>
+            <div class="om-kpi"><span>NOI</span><strong>$2,233,512</strong></div>
+            <div class="om-kpi"><span>Going-in Cap Rate</span><strong>7.45%</strong></div>
+            <div class="om-kpi"><span>Physical Occupancy</span><strong>93.2%</strong></div>
+            <div class="om-kpi"><span>Avg In-Place Rent</span><strong>$1,284/unit</strong></div>
+            <div class="om-kpi"><span>DSCR</span><strong>1.50x</strong></div>
+            <div class="om-kpi"><span>LTV</span><strong>65%</strong></div>
+            <div class="om-kpi"><span>5-Yr IRR</span><strong>14.8%</strong></div>
+            <div class="om-kpi"><span>Exit Value (Yr 5)</span><strong>$35,200,000</strong></div>
+          </div>
+        </div>
+
+        <!-- ── Live Scenario Modeler ── -->
+        <div class="dash-section-card">
+          <h2 class="dash-section-title">🎚️ Live Scenario Modeler</h2>
+          <p class="dash-section-sub">Adjust assumptions and watch every metric recalculate in real time.</p>
+
+          <!-- Sliders 2×3 Grid -->
+          <div class="sliders-grid">
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">Purchase Price</span>
+                <span class="slider-value" id="sv-price">$30.0M</span>
+              </div>
+              <input type="range" id="sl-price" min="25000000" max="45000000" step="100000" value="30000000" class="styled-slider" />
+              <div class="slider-bounds"><span>$25M</span><span>$45M</span></div>
+            </div>
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">Going-in Cap Rate</span>
+                <span class="slider-value" id="sv-caprate">7.45%</span>
+              </div>
+              <input type="range" id="sl-caprate" min="5.0" max="9.0" step="0.05" value="7.45" class="styled-slider" />
+              <div class="slider-bounds"><span>5.0%</span><span>9.0%</span></div>
+            </div>
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">LTV</span>
+                <span class="slider-value" id="sv-ltv">65.0%</span>
+              </div>
+              <input type="range" id="sl-ltv" min="50" max="80" step="1" value="65" class="styled-slider" />
+              <div class="slider-bounds"><span>50%</span><span>80%</span></div>
+            </div>
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">Interest Rate</span>
+                <span class="slider-value" id="sv-rate">6.25%</span>
+              </div>
+              <input type="range" id="sl-rate" min="4.0" max="9.0" step="0.05" value="6.25" class="styled-slider" />
+              <div class="slider-bounds"><span>4.0%</span><span>9.0%</span></div>
+            </div>
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">Occupancy</span>
+                <span class="slider-value" id="sv-occ">93.2%</span>
+              </div>
+              <input type="range" id="sl-occ" min="80" max="99" step="0.1" value="93.2" class="styled-slider" />
+              <div class="slider-bounds"><span>80%</span><span>99%</span></div>
+            </div>
+            <div class="slider-card">
+              <div class="slider-header">
+                <span class="slider-label">NOI Growth (Annual)</span>
+                <span class="slider-value" id="sv-noigrowth">2.5%</span>
+              </div>
+              <input type="range" id="sl-noigrowth" min="0" max="6" step="0.1" value="2.5" class="styled-slider" />
+              <div class="slider-bounds"><span>0%</span><span>6%</span></div>
             </div>
           </div>
-          <div class="dc-cat">
-            <div class="dc-cat-header"><span class="dc-cat-title">Physical Due Diligence</span><span class="dc-cat-score score-red">2/5</span></div>
-            <div class="dc-items">
-              <div class="dc-item ok">✅ Phase I Environmental</div>
-              <div class="dc-item ok">✅ Site Visit Completed</div>
-              <div class="dc-item missing">❌ PCA Report (pending)</div>
-              <div class="dc-item missing">❌ Phase II (not ordered)</div>
-              <div class="dc-item missing">❌ Roof Inspection</div>
+
+          <!-- Calculated Outputs -->
+          <div class="calc-outputs">
+            <div class="calc-output-card" id="coc-dscr-card">
+              <div class="co-label">DSCR</div>
+              <div class="co-value" id="co-dscr">1.50x</div>
+              <div class="co-indicator" id="co-dscr-ind">✅ Pass (≥1.25x)</div>
             </div>
-          </div>
-          <div class="dc-cat">
-            <div class="dc-cat-header"><span class="dc-cat-title">Legal &amp; Title</span><span class="dc-cat-score score-green">3/4</span></div>
-            <div class="dc-items">
-              <div class="dc-item ok">✅ Title Search Completed</div>
-              <div class="dc-item ok">✅ Zoning Confirmed (R-5)</div>
-              <div class="dc-item ok">✅ Survey on File</div>
-              <div class="dc-item missing">❌ Loan Documents Review</div>
+            <div class="calc-output-card">
+              <div class="co-label">Going-in Cap Rate</div>
+              <div class="co-value" id="co-caprate">7.45%</div>
+              <div class="co-indicator" id="co-caprate-ind">NOI ÷ Purchase Price</div>
             </div>
-          </div>
-          <div class="dc-cat">
-            <div class="dc-cat-header"><span class="dc-cat-title">Leasing &amp; Operations</span><span class="dc-cat-score score-amber">3/5</span></div>
-            <div class="dc-items">
-              <div class="dc-item ok">✅ Occupancy History</div>
-              <div class="dc-item ok">✅ Management Contract</div>
-              <div class="dc-item ok">✅ Sample Lease Agreements</div>
-              <div class="dc-item missing">❌ Unit-Level Rent Roll</div>
-              <div class="dc-item missing">❌ Reno Scope &amp; Bids</div>
+            <div class="calc-output-card">
+              <div class="co-label">Exit Value (Yr 5)</div>
+              <div class="co-value" id="co-exitval">$35.2M</div>
+              <div class="co-indicator" id="co-exitval-ind">at 7.75% exit cap</div>
             </div>
-          </div>
-          <div class="dc-cat">
-            <div class="dc-cat-header"><span class="dc-cat-title">Market Data</span><span class="dc-cat-score score-green">3/4</span></div>
-            <div class="dc-items">
-              <div class="dc-item ok">✅ Comp Set Rents</div>
-              <div class="dc-item ok">✅ Submarket Vacancy</div>
-              <div class="dc-item ok">✅ Supply Pipeline</div>
-              <div class="dc-item missing">❌ CoStar / Axiometrics Data</div>
+            <div class="calc-output-card">
+              <div class="co-label">CoC Return (Yr 1)</div>
+              <div class="co-value" id="co-coc">6.2%</div>
+              <div class="co-indicator" id="co-coc-ind">After debt service</div>
             </div>
           </div>
         </div>
-      </div><!-- /sp-datacomp -->
 
-    </div><!-- /stab-panels -->
-  </aside><!-- /sidebar -->
-
-  <!-- ═══════════════════════════ MAIN CONTENT ═══════════════════════════ -->
-  <main class="main-content">
-
-    <!-- Main Tab Navigation -->
-    <nav class="main-tabs-nav">
-      <button class="mtab active" data-mtab="calc">📊 Analyst Calc Zone</button>
-      <button class="mtab" data-mtab="ai">🤖 AI Recommendation</button>
-      <button class="mtab" data-mtab="ask">💬 Ask Document</button>
-      <div class="main-nav-badge">Kingswood Cove &nbsp;|&nbsp; 312 Units &nbsp;|&nbsp; Austin TX MSA</div>
-    </nav>
-
-    <!-- ─── Main Panel 1: Analyst Calc Zone ─── -->
-    <div class="mtab-panel active" id="mp-calc">
-      <div class="panel-header">
-        <h1>Analyst Calculation Zone</h1>
-        <p class="panel-subtitle">Kingswood Cove Apartments — Live Sensitivity &amp; Scenario Analysis</p>
-      </div>
-
-      <!-- Sliders 2×3 Grid -->
-      <div class="sliders-grid">
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">Purchase Price</span>
-            <span class="slider-value" id="sv-price">$30.0M</span>
+        <!-- Scenario Comparison -->
+        <div class="dash-section-card">
+          <div class="scenario-header">
+            <h2 class="dash-section-title">Scenario Comparison</h2>
+            <div class="scenario-actions">
+              <button class="btn-primary" onclick="saveScenario()">💾 Save Scenario</button>
+              <button class="btn-secondary" onclick="clearScenarios()">🗑 Clear All</button>
+              <button class="btn-secondary" onclick="exportCSV()">📄 Export CSV</button>
+            </div>
           </div>
-          <input type="range" id="sl-price" min="25000000" max="45000000" step="100000" value="30000000" class="styled-slider" />
-          <div class="slider-bounds"><span>$25M</span><span>$45M</span></div>
-        </div>
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">Going-in Cap Rate</span>
-            <span class="slider-value" id="sv-caprate">7.45%</span>
-          </div>
-          <input type="range" id="sl-caprate" min="5.0" max="9.0" step="0.05" value="7.45" class="styled-slider" />
-          <div class="slider-bounds"><span>5.0%</span><span>9.0%</span></div>
-        </div>
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">LTV</span>
-            <span class="slider-value" id="sv-ltv">65.0%</span>
-          </div>
-          <input type="range" id="sl-ltv" min="50" max="80" step="1" value="65" class="styled-slider" />
-          <div class="slider-bounds"><span>50%</span><span>80%</span></div>
-        </div>
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">Interest Rate</span>
-            <span class="slider-value" id="sv-rate">6.25%</span>
-          </div>
-          <input type="range" id="sl-rate" min="4.0" max="9.0" step="0.05" value="6.25" class="styled-slider" />
-          <div class="slider-bounds"><span>4.0%</span><span>9.0%</span></div>
-        </div>
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">Occupancy</span>
-            <span class="slider-value" id="sv-occ">93.2%</span>
-          </div>
-          <input type="range" id="sl-occ" min="80" max="99" step="0.1" value="93.2" class="styled-slider" />
-          <div class="slider-bounds"><span>80%</span><span>99%</span></div>
-        </div>
-        <div class="slider-card">
-          <div class="slider-header">
-            <span class="slider-label">NOI Growth (Annual)</span>
-            <span class="slider-value" id="sv-noigrowth">2.5%</span>
-          </div>
-          <input type="range" id="sl-noigrowth" min="0" max="6" step="0.1" value="2.5" class="styled-slider" />
-          <div class="slider-bounds"><span>0%</span><span>6%</span></div>
-        </div>
-      </div><!-- /sliders-grid -->
-
-      <!-- Calculated Outputs -->
-      <div class="calc-outputs">
-        <div class="calc-output-card" id="coc-dscr-card">
-          <div class="co-label">DSCR</div>
-          <div class="co-value" id="co-dscr">1.50x</div>
-          <div class="co-indicator" id="co-dscr-ind">✅ Pass (≥1.25x)</div>
-        </div>
-        <div class="calc-output-card">
-          <div class="co-label">Going-in Cap Rate</div>
-          <div class="co-value" id="co-caprate">7.45%</div>
-          <div class="co-indicator" id="co-caprate-ind">NOI ÷ Purchase Price</div>
-        </div>
-        <div class="calc-output-card">
-          <div class="co-label">Exit Value (Yr 5)</div>
-          <div class="co-value" id="co-exitval">$35.2M</div>
-          <div class="co-indicator" id="co-exitval-ind">at 7.75% exit cap</div>
-        </div>
-        <div class="calc-output-card">
-          <div class="co-label">CoC Return (Yr 1)</div>
-          <div class="co-value" id="co-coc">6.2%</div>
-          <div class="co-indicator" id="co-coc-ind">After debt service</div>
-        </div>
-      </div><!-- /calc-outputs -->
-
-      <!-- Scenario Comparison -->
-      <div class="scenario-section">
-        <div class="scenario-header">
-          <h2>Scenario Comparison</h2>
-          <div class="scenario-actions">
-            <button class="btn-primary" onclick="saveScenario()">💾 Save Scenario</button>
-            <button class="btn-secondary" onclick="clearScenarios()">🗑 Clear All</button>
-            <button class="btn-secondary" onclick="exportCSV()">📄 Export CSV</button>
+          <div class="table-wrap">
+            <table class="scenario-table">
+              <thead>
+                <tr>
+                  <th>Scenario</th><th>Price</th><th>Cap Rate</th><th>LTV</th>
+                  <th>Rate</th><th>Occ.</th><th>NOI Gr.</th><th>DSCR</th><th>CoC</th><th>Exit Value</th>
+                </tr>
+              </thead>
+              <tbody id="scenario-tbody"></tbody>
+            </table>
           </div>
         </div>
-        <div class="table-wrap">
-          <table class="scenario-table">
-            <thead>
-              <tr>
-                <th>Scenario</th><th>Price</th><th>Cap Rate</th><th>LTV</th>
-                <th>Rate</th><th>Occ.</th><th>NOI Gr.</th><th>DSCR</th><th>CoC</th><th>Exit Value</th>
-              </tr>
-            </thead>
-            <tbody id="scenario-tbody"></tbody>
+
+        <!-- Sensitivity Table -->
+        <div class="dash-section-card">
+          <h2 class="dash-section-title">Exit Sensitivity — Value ($M)</h2>
+          <p class="dash-section-sub">Cap Rate ↓ / NOI Growth →</p>
+          <div class="sensitivity-wrap">
+            <table class="sensitivity-table" id="sensitivity-table"></table>
+          </div>
+        </div>
+
+      </div><!-- /page-dashboard -->
+
+      <!-- ═══ AI RECOMMENDATION PAGE ═══ -->
+      <div class="page" id="page-ai">
+
+        <div class="page-header">
+          <h1>AI Investment Analysis</h1>
+          <p class="page-subtitle">Kingswood Cove Apartments — Due Diligence, Risk Assessment &amp; IC Preparation</p>
+        </div>
+
+        <!-- OM Summary Card -->
+        <div class="om-summary-card">
+          <div class="om-summary-header">📋 Offering Memorandum Summary — Kingswood Cove Apartments</div>
+          <div class="om-summary-grid">
+            <div class="om-kpi"><span>Property</span><strong>Kingswood Cove Apts.</strong></div>
+            <div class="om-kpi"><span>Location</span><strong>Round Rock, TX</strong></div>
+            <div class="om-kpi"><span>Units</span><strong>312</strong></div>
+            <div class="om-kpi"><span>Year Built / Reno</span><strong>1987 / 2019</strong></div>
+            <div class="om-kpi"><span>Acquisition Year</span><strong>2024</strong></div>
+            <div class="om-kpi"><span>Purchase Price</span><strong>$30,000,000</strong></div>
+            <div class="om-kpi"><span>Price / Unit</span><strong>$96,154</strong></div>
+            <div class="om-kpi"><span>NOI</span><strong>$2,233,512</strong></div>
+            <div class="om-kpi"><span>Going-in Cap Rate</span><strong>7.45%</strong></div>
+            <div class="om-kpi"><span>Physical Occupancy</span><strong>93.2%</strong></div>
+            <div class="om-kpi"><span>Avg In-Place Rent</span><strong>$1,284/unit</strong></div>
+            <div class="om-kpi"><span>DSCR</span><strong>1.50x</strong></div>
+            <div class="om-kpi"><span>LTV</span><strong>65%</strong></div>
+            <div class="om-kpi"><span>5-Yr IRR</span><strong>14.8%</strong></div>
+            <div class="om-kpi"><span>Exit Value (Yr 5)</span><strong>$35,200,000</strong></div>
+          </div>
+        </div>
+
+        <!-- Gap Alerts -->
+        <div class="section-card">
+          <h2 class="section-title">⚠️ Gap Alerts &amp; Data Issues</h2>
+          <div class="alert-list">
+            <div class="alert-item critical">
+              <span class="alert-badge badge-critical">🔴 CRITICAL</span>
+              <div class="alert-content">
+                <div class="alert-title">Rent Roll Not Provided</div>
+                <div class="alert-desc">Cannot verify individual unit rents or lease expirations. Unit-level detail required for accurate NOI projection and rent roll analysis.</div>
+              </div>
+            </div>
+            <div class="alert-item critical">
+              <span class="alert-badge badge-critical">🔴 CRITICAL</span>
+              <div class="alert-content">
+                <div class="alert-title">T12 Financials — Missing Q4 2023</div>
+                <div class="alert-desc">NOI projection basis unclear. Full trailing 12 months required to validate annual expense run rate and seasonal patterns.</div>
+              </div>
+            </div>
+            <div class="alert-item warning">
+              <span class="alert-badge badge-warning">🟡 WARNING</span>
+              <div class="alert-content">
+                <div class="alert-title">PCA Not Yet Completed</div>
+                <div class="alert-desc">Deferred maintenance estimate of $1.2M is unverified. PCA could materially affect closing conditions, earnest money, and capital reserve requirements.</div>
+              </div>
+            </div>
+            <div class="alert-item warning">
+              <span class="alert-badge badge-warning">🟡 WARNING</span>
+              <div class="alert-content">
+                <div class="alert-title">Renovation Schedule Unconfirmed</div>
+                <div class="alert-desc">87 units noted as renovated but contractor bids and completion schedule for remaining 225 units not provided. Value-add thesis dependent on renovation pipeline execution.</div>
+              </div>
+            </div>
+            <div class="alert-item warning">
+              <span class="alert-badge badge-warning">🟡 WARNING</span>
+              <div class="alert-content">
+                <div class="alert-title">Utility Sub-Metering Not Confirmed</div>
+                <div class="alert-desc">If property is master-metered, utilities could represent significant hidden cost exposure. May materially impact EGI and NOI assumptions.</div>
+              </div>
+            </div>
+            <div class="alert-item clear">
+              <span class="alert-badge badge-clear">🟢 CLEAR</span>
+              <div class="alert-content">
+                <div class="alert-title">Phase I Environmental — No RECs</div>
+                <div class="alert-desc">No recognized environmental conditions identified. Phase I completed April 20, 2024. No further investigation recommended at this time.</div>
+              </div>
+            </div>
+            <div class="alert-item clear">
+              <span class="alert-badge badge-clear">🟢 CLEAR</span>
+              <div class="alert-content">
+                <div class="alert-title">Title Search Completed — No Encumbrances</div>
+                <div class="alert-desc">Title insurance commitment received. No liens, encumbrances, or title issues identified. Clear title transfer anticipated.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- QA Checklist -->
+        <div class="section-card">
+          <h2 class="section-title">✅ Due Diligence QA Checklist</h2>
+          <div class="checklist-grid">
+            <label class="check-item checked"><input type="checkbox" checked /> Verify ownership and title</label>
+            <label class="check-item checked"><input type="checkbox" checked /> Confirm zoning (R-5 Multifamily)</label>
+            <label class="check-item checked"><input type="checkbox" checked /> Review T12 operating statements</label>
+            <label class="check-item"><input type="checkbox" /> Obtain full rent roll (unit-level)</label>
+            <label class="check-item"><input type="checkbox" /> Verify PCA report</label>
+            <label class="check-item checked"><input type="checkbox" checked /> Confirm Phase I environmental clear</label>
+            <label class="check-item"><input type="checkbox" /> Review loan documents and terms</label>
+            <label class="check-item"><input type="checkbox" /> Verify tax assessment &amp; protest history</label>
+            <label class="check-item checked"><input type="checkbox" checked /> Confirm insurance coverages</label>
+            <label class="check-item"><input type="checkbox" /> Validate reno scope and contractor bids</label>
+            <label class="check-item checked"><input type="checkbox" checked /> Review lease agreements (sample)</label>
+            <label class="check-item"><input type="checkbox" /> Verify utility consumption data</label>
+            <label class="check-item"><input type="checkbox" /> Confirm management contract terms</label>
+            <label class="check-item"><input type="checkbox" /> Perform submarket rent survey</label>
+            <label class="check-item"><input type="checkbox" /> Validate financial model assumptions</label>
+          </div>
+        </div>
+
+        <!-- Priority Action Items -->
+        <div class="section-card">
+          <h2 class="section-title">🎯 Priority Action Items</h2>
+          <ol class="action-list">
+            <li><strong>Obtain complete rent roll</strong> — Request unit-level detail with current rents, lease start/end dates, tenant names, and any active concessions. Critical path item before LOI execution proceeds.</li>
+            <li><strong>Complete Property Condition Assessment (PCA)</strong> — Engage qualified engineer to complete PCA within DD period. Budget for $1.2M deferred maintenance estimate plus 20% contingency for underwriting.</li>
+            <li><strong>Request T12 for full year 2023</strong> — Current data missing Q4. Full trailing 12 months needed to validate seasonal patterns and accurate expense run rate before hard earnest money goes non-refundable.</li>
+            <li><strong>Validate renovation pipeline &amp; pricing</strong> — Obtain current bids for remaining 225 units. Confirm $6,200/unit average with current labor/materials costs. Validate $121/mo premium against recent lease-up comps.</li>
+            <li><strong>Confirm utility structure</strong> — Determine if master-metered or sub-metered. If master-metered, remodel utility expense and impact to NOI. Sub-metering conversion cost should be factored into capex budget.</li>
+            <li><strong>Review tax assessment history</strong> — Williamson County assessment trends. Identify any pending protests or year-over-year increases that could affect forward expense budget.</li>
+            <li><strong>Coordinate lender appraisal</strong> — Align with lender timeline for appraisal order. Ensure comparable sales support $30M purchase price at 7.45% going-in cap rate for underwriting.</li>
+          </ol>
+        </div>
+
+        <!-- DD Milestone Tracker -->
+        <div class="section-card">
+          <h2 class="section-title">📅 Due Diligence Milestone Tracker</h2>
+          <table class="milestone-table">
+            <thead><tr><th>Milestone</th><th>Due Date</th><th>Assignee</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>LOI Executed</td><td>Apr 15, 2024</td><td>Principal</td><td><span class="badge badge-success">✅ Complete</span></td></tr>
+              <tr><td>Due Diligence Period</td><td>Apr 15 – May 15</td><td>All</td><td><span class="badge badge-progress">🔄 In Progress</span></td></tr>
+              <tr><td>PCA Ordered</td><td>Apr 18, 2024</td><td>Analyst</td><td><span class="badge badge-success">✅ Complete</span></td></tr>
+              <tr><td>Phase I Environmental</td><td>Apr 20, 2024</td><td>Consultant</td><td><span class="badge badge-success">✅ Complete</span></td></tr>
+              <tr><td>Loan Application Submitted</td><td>Apr 22, 2024</td><td>Capital Mkts</td><td><span class="badge badge-progress">🔄 In Progress</span></td></tr>
+              <tr><td>Full Rent Roll Receipt</td><td>Apr 25, 2024</td><td>Broker</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
+              <tr><td>Hard Earnest Money</td><td>May 1, 2024</td><td>Escrow</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
+              <tr><td>Appraisal Ordered</td><td>May 5, 2024</td><td>Lender</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
+              <tr><td>Commitment Letter</td><td>May 10, 2024</td><td>Lender</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
+              <tr><td>Closing</td><td>May 30, 2024</td><td>All</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
+            </tbody>
           </table>
         </div>
-      </div><!-- /scenario-section -->
-    </div><!-- /mp-calc -->
 
-    <!-- ─── Main Panel 2: AI Recommendation ─── -->
-    <div class="mtab-panel" id="mp-ai">
-      <div class="panel-header">
-        <h1>AI Investment Analysis</h1>
-        <p class="panel-subtitle">Kingswood Cove Apartments — Due Diligence, Risk Assessment &amp; IC Preparation</p>
-      </div>
-
-      <!-- OM Summary Card -->
-      <div class="om-summary-card">
-        <div class="om-summary-header">📋 Offering Memorandum Summary — Kingswood Cove Apartments</div>
-        <div class="om-summary-grid">
-          <div class="om-kpi"><span>Property</span><strong>Kingswood Cove Apts.</strong></div>
-          <div class="om-kpi"><span>Location</span><strong>Round Rock, TX</strong></div>
-          <div class="om-kpi"><span>Units</span><strong>312</strong></div>
-          <div class="om-kpi"><span>Year Built / Reno</span><strong>1987 / 2019</strong></div>
-          <div class="om-kpi"><span>Acquisition Year</span><strong>2024</strong></div>
-          <div class="om-kpi"><span>Purchase Price</span><strong>$30,000,000</strong></div>
-          <div class="om-kpi"><span>Price / Unit</span><strong>$96,154</strong></div>
-          <div class="om-kpi"><span>NOI</span><strong>$2,233,512</strong></div>
-          <div class="om-kpi"><span>Going-in Cap Rate</span><strong>7.45%</strong></div>
-          <div class="om-kpi"><span>Physical Occupancy</span><strong>93.2%</strong></div>
-          <div class="om-kpi"><span>Avg In-Place Rent</span><strong>$1,284/unit</strong></div>
-          <div class="om-kpi"><span>DSCR</span><strong>1.50x</strong></div>
-          <div class="om-kpi"><span>LTV</span><strong>65%</strong></div>
-          <div class="om-kpi"><span>5-Yr IRR</span><strong>14.8%</strong></div>
-          <div class="om-kpi"><span>Exit Value (Yr 5)</span><strong>$35,200,000</strong></div>
-        </div>
-      </div>
-
-      <!-- Gap Alerts -->
-      <div class="section-card">
-        <h2 class="section-title">⚠️ Gap Alerts &amp; Data Issues</h2>
-        <div class="alert-list">
-          <div class="alert-item critical">
-            <span class="alert-badge badge-critical">🔴 CRITICAL</span>
-            <div class="alert-content">
-              <div class="alert-title">Rent Roll Not Provided</div>
-              <div class="alert-desc">Cannot verify individual unit rents or lease expirations. Unit-level detail required for accurate NOI projection and rent roll analysis.</div>
+        <!-- IC Memo Button -->
+        <div class="ic-memo-section">
+          <div class="ic-memo-section-inner">
+            <div>
+              <div class="ic-memo-title">Investment Committee Memorandum</div>
+              <div class="ic-memo-desc">Generate a complete, formatted IC memo with all deal metrics, risk factors, market analysis, and investment recommendation ready for committee review.</div>
             </div>
-          </div>
-          <div class="alert-item critical">
-            <span class="alert-badge badge-critical">🔴 CRITICAL</span>
-            <div class="alert-content">
-              <div class="alert-title">T12 Financials — Missing Q4 2023</div>
-              <div class="alert-desc">NOI projection basis unclear. Full trailing 12 months required to validate annual expense run rate and seasonal patterns.</div>
-            </div>
-          </div>
-          <div class="alert-item warning">
-            <span class="alert-badge badge-warning">🟡 WARNING</span>
-            <div class="alert-content">
-              <div class="alert-title">PCA Not Yet Completed</div>
-              <div class="alert-desc">Deferred maintenance estimate of $1.2M is unverified. PCA could materially affect closing conditions, earnest money, and capital reserve requirements.</div>
-            </div>
-          </div>
-          <div class="alert-item warning">
-            <span class="alert-badge badge-warning">🟡 WARNING</span>
-            <div class="alert-content">
-              <div class="alert-title">Renovation Schedule Unconfirmed</div>
-              <div class="alert-desc">87 units noted as renovated but contractor bids and completion schedule for remaining 225 units not provided. Value-add thesis dependent on renovation pipeline execution.</div>
-            </div>
-          </div>
-          <div class="alert-item warning">
-            <span class="alert-badge badge-warning">🟡 WARNING</span>
-            <div class="alert-content">
-              <div class="alert-title">Utility Sub-Metering Not Confirmed</div>
-              <div class="alert-desc">If property is master-metered, utilities could represent significant hidden cost exposure. May materially impact EGI and NOI assumptions.</div>
-            </div>
-          </div>
-          <div class="alert-item clear">
-            <span class="alert-badge badge-clear">🟢 CLEAR</span>
-            <div class="alert-content">
-              <div class="alert-title">Phase I Environmental — No RECs</div>
-              <div class="alert-desc">No recognized environmental conditions identified. Phase I completed April 20, 2024. No further investigation recommended at this time.</div>
-            </div>
-          </div>
-          <div class="alert-item clear">
-            <span class="alert-badge badge-clear">🟢 CLEAR</span>
-            <div class="alert-content">
-              <div class="alert-title">Title Search Completed — No Encumbrances</div>
-              <div class="alert-desc">Title insurance commitment received. No liens, encumbrances, or title issues identified. Clear title transfer anticipated.</div>
-            </div>
+            <button class="btn-ic-memo" onclick="generateICMemo()">📄 Generate Full IC Memo</button>
           </div>
         </div>
-      </div>
 
-      <!-- QA Checklist -->
-      <div class="section-card">
-        <h2 class="section-title">✅ Due Diligence QA Checklist</h2>
-        <div class="checklist-grid">
-          <label class="check-item checked"><input type="checkbox" checked /> Verify ownership and title</label>
-          <label class="check-item checked"><input type="checkbox" checked /> Confirm zoning (R-5 Multifamily)</label>
-          <label class="check-item checked"><input type="checkbox" checked /> Review T12 operating statements</label>
-          <label class="check-item"><input type="checkbox" /> Obtain full rent roll (unit-level)</label>
-          <label class="check-item"><input type="checkbox" /> Verify PCA report</label>
-          <label class="check-item checked"><input type="checkbox" checked /> Confirm Phase I environmental clear</label>
-          <label class="check-item"><input type="checkbox" /> Review loan documents and terms</label>
-          <label class="check-item"><input type="checkbox" /> Verify tax assessment &amp; protest history</label>
-          <label class="check-item checked"><input type="checkbox" checked /> Confirm insurance coverages</label>
-          <label class="check-item"><input type="checkbox" /> Validate reno scope and contractor bids</label>
-          <label class="check-item checked"><input type="checkbox" checked /> Review lease agreements (sample)</label>
-          <label class="check-item"><input type="checkbox" /> Verify utility consumption data</label>
-          <label class="check-item"><input type="checkbox" /> Confirm management contract terms</label>
-          <label class="check-item"><input type="checkbox" /> Perform submarket rent survey</label>
-          <label class="check-item"><input type="checkbox" /> Validate financial model assumptions</label>
+      </div><!-- /page-ai -->
+
+      <!-- ═══ ASK DOCUMENT PAGE ═══ -->
+      <div class="page" id="page-ask">
+
+        <div class="page-header">
+          <h1>Ask Document</h1>
+          <p class="page-subtitle">Kingswood Cove OM — Natural Language Q&amp;A &amp; Document Intelligence</p>
         </div>
-      </div>
 
-      <!-- Priority Action Items -->
-      <div class="section-card">
-        <h2 class="section-title">🎯 Priority Action Items</h2>
-        <ol class="action-list">
-          <li><strong>Obtain complete rent roll</strong> — Request unit-level detail with current rents, lease start/end dates, tenant names, and any active concessions. Critical path item before LOI execution proceeds.</li>
-          <li><strong>Complete Property Condition Assessment (PCA)</strong> — Engage qualified engineer to complete PCA within DD period. Budget for $1.2M deferred maintenance estimate plus 20% contingency for underwriting.</li>
-          <li><strong>Request T12 for full year 2023</strong> — Current data missing Q4. Full trailing 12 months needed to validate seasonal patterns and accurate expense run rate before hard earnest money goes non-refundable.</li>
-          <li><strong>Validate renovation pipeline &amp; pricing</strong> — Obtain current bids for remaining 225 units. Confirm $6,200/unit average with current labor/materials costs. Validate $121/mo premium against recent lease-up comps.</li>
-          <li><strong>Confirm utility structure</strong> — Determine if master-metered or sub-metered. If master-metered, remodel utility expense and impact to NOI. Sub-metering conversion cost should be factored into capex budget.</li>
-          <li><strong>Review tax assessment history</strong> — Williamson County assessment trends. Identify any pending protests or year-over-year increases that could affect forward expense budget.</li>
-          <li><strong>Coordinate lender appraisal</strong> — Align with lender timeline for appraisal order. Ensure comparable sales support $30M purchase price at 7.45% going-in cap rate for underwriting.</li>
-        </ol>
-      </div>
-
-      <!-- DD Milestone Tracker -->
-      <div class="section-card">
-        <h2 class="section-title">📅 Due Diligence Milestone Tracker</h2>
-        <table class="milestone-table">
-          <thead><tr><th>Milestone</th><th>Due Date</th><th>Assignee</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr><td>LOI Executed</td><td>Apr 15, 2024</td><td>Principal</td><td><span class="badge badge-success">✅ Complete</span></td></tr>
-            <tr><td>Due Diligence Period</td><td>Apr 15 – May 15</td><td>All</td><td><span class="badge badge-progress">🔄 In Progress</span></td></tr>
-            <tr><td>PCA Ordered</td><td>Apr 18, 2024</td><td>Analyst</td><td><span class="badge badge-success">✅ Complete</span></td></tr>
-            <tr><td>Phase I Environmental</td><td>Apr 20, 2024</td><td>Consultant</td><td><span class="badge badge-success">✅ Complete</span></td></tr>
-            <tr><td>Loan Application Submitted</td><td>Apr 22, 2024</td><td>Capital Mkts</td><td><span class="badge badge-progress">🔄 In Progress</span></td></tr>
-            <tr><td>Full Rent Roll Receipt</td><td>Apr 25, 2024</td><td>Broker</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
-            <tr><td>Hard Earnest Money</td><td>May 1, 2024</td><td>Escrow</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
-            <tr><td>Appraisal Ordered</td><td>May 5, 2024</td><td>Lender</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
-            <tr><td>Commitment Letter</td><td>May 10, 2024</td><td>Lender</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
-            <tr><td>Closing</td><td>May 30, 2024</td><td>All</td><td><span class="badge badge-pending">⏳ Pending</span></td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- IC Memo Button -->
-      <div class="ic-memo-section">
-        <div class="ic-memo-section-inner">
-          <div>
-            <div class="ic-memo-title">Investment Committee Memorandum</div>
-            <div class="ic-memo-desc">Generate a complete, formatted IC memo with all deal metrics, risk factors, market analysis, and investment recommendation ready for committee review.</div>
+        <!-- API Key -->
+        <div class="api-key-card">
+          <div class="api-key-label">🔑 Anthropic API Key <span class="api-optional">(Optional)</span></div>
+          <div class="api-key-row">
+            <input type="password" id="anthropic-key" placeholder="sk-ant-... leave blank to use pre-built OM responses" />
+            <button class="btn-secondary" onclick="saveApiKey()">Save Key</button>
           </div>
-          <button class="btn-ic-memo" onclick="generateICMemo()">📄 Generate Full IC Memo</button>
+          <div class="api-key-note">If provided, responses use Claude AI with live OM context. Otherwise, comprehensive pre-built responses are returned instantly.</div>
         </div>
-      </div>
-    </div><!-- /mp-ai -->
 
-    <!-- ─── Main Panel 3: Ask Document ─── -->
-    <div class="mtab-panel" id="mp-ask">
-      <div class="panel-header">
-        <h1>Ask Document</h1>
-        <p class="panel-subtitle">Kingswood Cove OM — Natural Language Q&amp;A &amp; Document Intelligence</p>
-      </div>
-
-      <!-- API Key -->
-      <div class="api-key-card">
-        <div class="api-key-label">🔑 Anthropic API Key <span class="api-optional">(Optional)</span></div>
-        <div class="api-key-row">
-          <input type="password" id="anthropic-key" placeholder="sk-ant-... leave blank to use pre-built OM responses" />
-          <button class="btn-secondary" onclick="saveApiKey()">Save Key</button>
+        <!-- Quick Questions -->
+        <div class="quick-questions">
+          <h3 class="qq-title">Quick Questions</h3>
+          <div class="qq-grid">
+            <button class="qq-btn" onclick="askDocument('What is the current NOI?')">What is the current NOI?</button>
+            <button class="qq-btn" onclick="askDocument('What are the occupancy rates?')">What are the occupancy rates?</button>
+            <button class="qq-btn" onclick="askDocument('Explain the renovation opportunity')">Explain the renovation opportunity</button>
+            <button class="qq-btn" onclick="askDocument('What are the key risk factors?')">What are the key risk factors?</button>
+            <button class="qq-btn" onclick="askDocument('Summarize the debt terms')">Summarize the debt terms</button>
+            <button class="qq-btn" onclick="askDocument('What is the exit strategy?')">What is the exit strategy?</button>
+            <button class="qq-btn" onclick="askDocument('Compare to market comps')">Compare to market comps</button>
+            <button class="qq-btn" onclick="askDocument('What data is missing?')">What data is missing?</button>
+          </div>
         </div>
-        <div class="api-key-note">If provided, responses use Claude AI with live OM context. Otherwise, comprehensive pre-built responses are returned instantly.</div>
-      </div>
 
-      <!-- Quick Questions -->
-      <div class="quick-questions">
-        <h3 class="qq-title">Quick Questions</h3>
-        <div class="qq-grid">
-          <button class="qq-btn" onclick="askDocument('What is the current NOI?')">What is the current NOI?</button>
-          <button class="qq-btn" onclick="askDocument('What are the occupancy rates?')">What are the occupancy rates?</button>
-          <button class="qq-btn" onclick="askDocument('Explain the renovation opportunity')">Explain the renovation opportunity</button>
-          <button class="qq-btn" onclick="askDocument('What are the key risk factors?')">What are the key risk factors?</button>
-          <button class="qq-btn" onclick="askDocument('Summarize the debt terms')">Summarize the debt terms</button>
-          <button class="qq-btn" onclick="askDocument('What is the exit strategy?')">What is the exit strategy?</button>
-          <button class="qq-btn" onclick="askDocument('Compare to market comps')">Compare to market comps</button>
-          <button class="qq-btn" onclick="askDocument('What data is missing?')">What data is missing?</button>
-        </div>
-      </div>
-
-      <!-- Chat Interface -->
-      <div class="chat-container">
-        <div class="chat-messages" id="chat-messages">
-          <div class="chat-msg assistant">
-            <div class="chat-avatar">🤖</div>
-            <div class="chat-bubble">
-              <strong>Kingswood Cove OM Assistant</strong>
-              Welcome! I'm loaded with the complete Kingswood Cove Offering Memorandum. Ask me anything about this deal — NOI, occupancy, renovation upside, debt terms, market comps, risk factors, or missing data gaps. Click a quick question above or type your own below.
+        <!-- Chat Interface -->
+        <div class="chat-container">
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-msg assistant">
+              <div class="chat-avatar">🤖</div>
+              <div class="chat-bubble">
+                <strong>Kingswood Cove OM Assistant</strong>
+                Welcome! I'm loaded with the complete Kingswood Cove Offering Memorandum. Ask me anything about this deal — NOI, occupancy, renovation upside, debt terms, market comps, risk factors, or missing data gaps. Click a quick question above or type your own below.
+              </div>
             </div>
           </div>
+          <div class="chat-input-wrap">
+            <input type="text" id="chat-input" placeholder="Ask a question about Kingswood Cove..." onkeydown="if(event.key==='Enter' && this.value.trim()) { askDocument(this.value); }" />
+            <button class="btn-primary" onclick="askDocument(document.getElementById('chat-input').value)">Ask →</button>
+          </div>
         </div>
-        <div class="chat-input-wrap">
-          <input type="text" id="chat-input" placeholder="Ask a question about Kingswood Cove..." onkeydown="if(event.key==='Enter' && this.value.trim()) { askDocument(this.value); }" />
-          <button class="btn-primary" onclick="askDocument(document.getElementById('chat-input').value)">Ask →</button>
-        </div>
-      </div>
-    </div><!-- /mp-ask -->
 
-  </main><!-- /main-content -->
-</div><!-- /app-container -->
+      </div><!-- /page-ask -->
+
+    </main><!-- /main-content -->
+  </div><!-- /view-app -->
+
+</div><!-- /app-shell -->
 
 <!-- ═══════════════════════════ IC MEMO MODAL ═══════════════════════════ -->
 <div class="modal-overlay" id="ic-memo-modal">
@@ -806,5 +577,60 @@
 </div>
 
 <script src="app.js"></script>
+
+<!-- ═══ Page Navigation (view/page switching) ═══ -->
+<script>
+function navigateTo(target) {
+  /* view-level switch: upload ↔ app */
+  if (target === 'upload') {
+    document.getElementById('view-upload').classList.add('active');
+    document.getElementById('view-app').classList.remove('active');
+    return;
+  }
+  /* Everything else lives inside view-app */
+  document.getElementById('view-upload').classList.remove('active');
+  document.getElementById('view-app').classList.add('active');
+
+  /* page-level switch inside app */
+  var pages = document.querySelectorAll('.page');
+  pages.forEach(function(p){ p.classList.remove('active'); });
+  var navLinks = document.querySelectorAll('.nav-link');
+  navLinks.forEach(function(l){ l.classList.remove('active'); });
+
+  var pageId = 'page-' + target;
+  var pg = document.getElementById(pageId);
+  if (pg) pg.classList.add('active');
+
+  navLinks.forEach(function(l){
+    if (l.getAttribute('data-page') === target) l.classList.add('active');
+  });
+}
+
+/* Sidebar nav clicks */
+document.querySelectorAll('.nav-link[data-page]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    navigateTo(btn.getAttribute('data-page'));
+  });
+});
+
+/* After file upload completes, auto-transition to dashboard */
+(function(){
+  var origSetUploadStatus = window.setUploadStatus;
+  if (typeof origSetUploadStatus === 'function') {
+    window.setUploadStatus = function(msg, pct) {
+      origSetUploadStatus(msg, pct);
+      if (pct >= 100) {
+        setTimeout(function(){ navigateTo('dashboard'); }, 800);
+        /* Also show sidebar file indicator */
+        var sfi = document.getElementById('sidebar-file-indicator');
+        var sfn = document.getElementById('sidebar-file-name');
+        var ufn = document.getElementById('upload-file-name');
+        if (sfi) sfi.style.display = '';
+        if (sfn && ufn) sfn.textContent = ufn.textContent;
+      }
+    };
+  }
+})();
+</script>
 </body>
 </html>
