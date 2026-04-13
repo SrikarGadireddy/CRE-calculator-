@@ -22,6 +22,7 @@ var dealData = {
 };
 
 var OM_CONTEXT = '';
+var _currentFileName = ''; // tracks the file name of the most recent main-upload
 
 // ══════════════════════════════════════════════════
 // UTILITIES
@@ -1279,6 +1280,9 @@ function applyExtractedData(extracted) {
   // Default noiGrowth to 2% if not found (used by calc engine)
   if(dealData.noiGrowth==null) dealData.noiGrowth=2;
 
+  // Persist this document to history
+  saveDocToHistory(dealData.propertyName || _currentFileName || 'Untitled Deal', _currentFileName, JSON.parse(JSON.stringify(dealData)));
+
   updateCalculations();
   updateSidebar();
   seedSliders();
@@ -1318,6 +1322,7 @@ function handleFileSelect(event) {
 }
 
 function processFile(file) {
+  _currentFileName = file.name;
   var nameEl=document.getElementById('upload-file-name');
   var iconEl=document.getElementById('upload-file-icon');
   if(nameEl) nameEl.textContent=file.name;
@@ -1674,6 +1679,187 @@ function generateMemo() {
 }
 
 // ══════════════════════════════════════════════════
+// DOCUMENT HISTORY (localStorage persistence)
+// ══════════════════════════════════════════════════
+
+var DOC_HISTORY_KEY = 'cre_doc_history';
+var DOC_HISTORY_MAX = 50;
+var DOC_HISTORY_FALLBACK = 5; // minimum items to keep when localStorage quota is exceeded
+var docHistory = []; // [{id, name, fileName, uploadedAt, data}]
+
+function loadDocHistory() {
+  try {
+    var raw = localStorage.getItem(DOC_HISTORY_KEY);
+    docHistory = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(docHistory)) docHistory = [];
+  } catch(e) {
+    docHistory = [];
+  }
+}
+
+function persistDocHistory() {
+  try {
+    localStorage.setItem(DOC_HISTORY_KEY, JSON.stringify(docHistory));
+  } catch(e) {
+    // If quota exceeded, drop the oldest items and try again
+    if (docHistory.length > DOC_HISTORY_FALLBACK) {
+      docHistory = docHistory.slice(docHistory.length - DOC_HISTORY_FALLBACK);
+      try { localStorage.setItem(DOC_HISTORY_KEY, JSON.stringify(docHistory)); } catch(e2) {}
+    }
+  }
+}
+
+function saveDocToHistory(name, fileName, data) {
+  // Deduplicate: if an entry with the same name and fileName already exists, update it
+  var existing = docHistory.findIndex(function(h) {
+    return h.name === name && h.fileName === fileName;
+  });
+  var entry = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    name: name || 'Untitled Deal',
+    fileName: fileName || '',
+    uploadedAt: new Date().toISOString(),
+    data: data
+  };
+  if (existing >= 0) {
+    docHistory[existing] = entry; // refresh existing
+  } else {
+    docHistory.push(entry);
+    if (docHistory.length > DOC_HISTORY_MAX) {
+      docHistory = docHistory.slice(docHistory.length - DOC_HISTORY_MAX);
+    }
+  }
+  persistDocHistory();
+}
+
+function deleteDocFromHistory(id) {
+  docHistory = docHistory.filter(function(h) { return h.id !== id; });
+  persistDocHistory();
+  setTab('tab-compare', renderComparison());
+}
+
+function clearDocHistory() {
+  if (!confirm('Delete all ' + docHistory.length + ' documents from history?')) return;
+  docHistory = [];
+  persistDocHistory();
+  setTab('tab-compare', renderComparison());
+}
+
+function loadHistoryDocToSlot(id, slotIdx) {
+  var entry = docHistory.find(function(h) { return h.id === id; });
+  if (!entry) return;
+  cmpSlots[slotIdx] = {
+    name: entry.name,
+    status: '✅ Loaded from history.',
+    pct: 100,
+    data: JSON.parse(JSON.stringify(entry.data))
+  };
+  setTab('tab-compare', renderComparison());
+  // Scroll to the slots so the user can see the loaded deal
+  var slots = document.querySelector('.cmp-upload-grid');
+  if (slots) slots.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function addHistoryDocToCompare(id) {
+  if (compareDeals.length >= 5) {
+    alert('Maximum 5 deals can be compared at once. Remove a deal first.');
+    return;
+  }
+  var entry = docHistory.find(function(h) { return h.id === id; });
+  if (!entry) return;
+  compareDeals.push({
+    name: entry.name,
+    color: CMP_COLORS[compareDeals.length % CMP_COLORS.length],
+    data: JSON.parse(JSON.stringify(entry.data))
+  });
+  updateCmpBadge();
+  setTab('tab-compare', renderComparison());
+}
+
+function loadHistoryDocAsCurrent(id) {
+  var entry = docHistory.find(function(h) { return h.id === id; });
+  if (!entry) return;
+  // Reset all dealData fields to null/empty first, then apply stored values
+  Object.keys(dealData).forEach(function(k) { dealData[k] = null; });
+  dealData.unitMix = []; dealData.expenses = {}; dealData.renovation = {};
+  dealData.market = {}; dealData.esg = {}; dealData.extractedFields = []; dealData.missing = [];
+  Object.keys(entry.data).forEach(function(k) {
+    if (entry.data[k] !== undefined) dealData[k] = entry.data[k];
+  });
+  _currentFileName = entry.fileName || '';
+  updateCalculations();
+  updateSidebar();
+  seedSliders();
+  updateOMContext();
+  alert('Loaded "' + entry.name + '" as the current deal.');
+}
+
+function renderHistorySection() {
+  if (!docHistory.length) {
+    return '<div class="hist-empty">'+
+      '<div class="hist-empty-icon">📂</div>'+
+      '<div class="hist-empty-title">No document history yet</div>'+
+      '<div class="hist-empty-sub">Every document you upload is automatically saved here so you can reload or compare it any time.</div>'+
+    '</div>';
+  }
+
+  // Render newest-first
+  var sorted = docHistory.slice().reverse();
+
+  var html = '<div class="hist-toolbar">'+
+    '<input class="hist-search" id="hist-search-input" type="text" placeholder="🔍  Search by name or file…" oninput="filterHistory(this.value)">'+
+    '<button class="btn btn-secondary" style="font-size:11px;padding:4px 12px;flex-shrink:0" onclick="clearDocHistory()">🗑 Clear All History</button>'+
+  '</div>';
+
+  html += '<div class="hist-grid" id="hist-grid">';
+  sorted.forEach(function(entry) {
+    html += renderHistoryCard(entry);
+  });
+  html += '</div>';
+
+  return html;
+}
+
+function renderHistoryCard(entry) {
+  var d = entry.data || {};
+  var dateStr = '';
+  try { dateStr = new Date(entry.uploadedAt).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'}); } catch(e) {}
+  var metrics = '';
+  if (d.purchasePrice) metrics += '<span class="hist-metric">'+fmt$(d.purchasePrice)+'</span>';
+  if (d.noi)           metrics += '<span class="hist-metric">NOI '+commas(d.noi)+'</span>';
+  if (d.capRateGoing)  metrics += '<span class="hist-metric">'+fmtPct(d.capRateGoing,2)+' cap</span>';
+  if (d.units)         metrics += '<span class="hist-metric">'+d.units+' units</span>';
+  if (d.physicalOccupancy) metrics += '<span class="hist-metric">'+fmtPct(d.physicalOccupancy,0)+' occ</span>';
+  if (!metrics)        metrics = '<span class="hist-metric hist-metric-na">No financial data</span>';
+
+  return '<div class="hist-card" data-hist-name="'+escHtml((entry.name||'').toLowerCase())+'" data-hist-file="'+escHtml((entry.fileName||'').toLowerCase())+'" data-hist-id="'+escHtml(entry.id)+'">'+
+    '<div class="hist-card-header">'+
+      '<div class="hist-card-name" title="'+escHtml(entry.name)+'">'+escHtml(entry.name)+'</div>'+
+      '<button class="hist-card-delete" onclick="deleteDocFromHistory(\''+escHtml(entry.id)+'\')" title="Delete from history">✕</button>'+
+    '</div>'+
+    '<div class="hist-card-file">'+escHtml(entry.fileName||'—')+'</div>'+
+    '<div class="hist-card-date">'+escHtml(dateStr)+'</div>'+
+    '<div class="hist-card-metrics">'+metrics+'</div>'+
+    '<div class="hist-card-actions">'+
+      '<button class="hist-action-btn hist-action-a" onclick="loadHistoryDocToSlot(\''+escHtml(entry.id)+'\',0)" title="Load into Slot A for deep comparison">→ Slot A</button>'+
+      '<button class="hist-action-btn hist-action-b" onclick="loadHistoryDocToSlot(\''+escHtml(entry.id)+'\',1)" title="Load into Slot B for deep comparison">→ Slot B</button>'+
+      '<button class="hist-action-btn hist-action-cmp" onclick="addHistoryDocToCompare(\''+escHtml(entry.id)+'\')" title="Add to multi-deal comparison table">➕ Compare</button>'+
+      '<button class="hist-action-btn hist-action-load" onclick="loadHistoryDocAsCurrent(\''+escHtml(entry.id)+'\')" title="Reload as current deal">🔄 Load</button>'+
+    '</div>'+
+  '</div>';
+}
+
+function filterHistory(query) {
+  var q = (query || '').toLowerCase().trim();
+  var cards = document.querySelectorAll('#hist-grid .hist-card');
+  cards.forEach(function(card) {
+    var name = card.getAttribute('data-hist-name') || '';
+    var file = card.getAttribute('data-hist-file') || '';
+    card.style.display = (!q || name.includes(q) || file.includes(q)) ? '' : 'none';
+  });
+}
+
+// ══════════════════════════════════════════════════
 // DEAL COMPARISON ENGINE
 // ══════════════════════════════════════════════════
 
@@ -1700,11 +1886,14 @@ function addCurrentDealToSlot(slotIdx) {
   var name = prompt('Name this deal:', defaultName);
   if(name===null) return;
   if(!name.trim()) name = defaultName;
+  var dataSnapshot = JSON.parse(JSON.stringify(dealData));
+  // Persist to history in case it isn't already there
+  saveDocToHistory(name.trim(), _currentFileName || '', dataSnapshot);
   cmpSlots[slotIdx] = {
     name: name.trim(),
     status: '✅ Loaded from current deal.',
     pct: 100,
-    data: JSON.parse(JSON.stringify(dealData))
+    data: dataSnapshot
   };
   setTab('tab-compare', renderComparison());
 }
@@ -1869,6 +2058,8 @@ function applyExtractedDataToSlot(extracted, slotIdx, fileName) {
     data.noi = eg - data.totalExpenses;
   }
   if(data.noiGrowth == null) data.noiGrowth = 2;
+  // Persist this document to history
+  saveDocToHistory(data.propertyName || fileName || ('Deal ' + CMP_SLOT_LABELS[slotIdx]), fileName, JSON.parse(JSON.stringify(data)));
   cmpSlots[slotIdx] = {
     name: data.propertyName || fileName || ('Deal ' + CMP_SLOT_LABELS[slotIdx]),
     status: '✅ ' + extracted.extractedFields.length + ' fields extracted.',
@@ -2328,10 +2519,13 @@ function addToComparison() {
   var name = prompt('Name this deal for comparison:', defaultName);
   if(name===null) return;
   if(!name.trim()) name = defaultName;
+  var dataSnapshot = JSON.parse(JSON.stringify(dealData));
+  // Persist to history in case it isn't already there
+  saveDocToHistory(name.trim(), _currentFileName || '', dataSnapshot);
   compareDeals.push({
     name: name.trim(),
     color: CMP_COLORS[compareDeals.length % CMP_COLORS.length],
-    data: JSON.parse(JSON.stringify(dealData))
+    data: dataSnapshot
   });
   updateCmpBadge();
   setTab('tab-compare', renderComparison());
@@ -2394,7 +2588,16 @@ function renderComparison() {
   var html = '<div class="page-title">⚖️ Deal Comparison Analysis</div>';
   html += '<div class="page-sub">Upload two deal documents for a side-by-side deep-dive comparison with scoring and risk analysis.</div>';
 
+  // ── Document History ──
+  html += '<div class="cmp-section-divider" style="margin-top:8px"></div>';
+  html += '<div class="deep-section-title" style="margin-top:20px">📚 Document History <span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:6px">('+docHistory.length+' saved)</span></div>';
+  html += '<div class="page-sub" style="margin-bottom:12px">Every uploaded document is saved here. Load any into Slot A or B, add to the multi-deal table, or reload as the current deal.</div>';
+  html += renderHistorySection();
+  html += '<div class="cmp-section-divider"></div>';
+
   // ── Direct upload slots (always visible) ──
+  html += '<div class="deep-section-title" style="margin-top:20px">🔬 Side-by-Side Deep Analysis</div>';
+  html += '<div class="page-sub" style="margin-bottom:12px">Upload or select two deals to get a full metric comparison, scorecard, risk flags, and recommendation.</div>';
   html += '<div class="cmp-upload-grid">';
   html += renderCmpSlotCard(0);
   html += renderCmpSlotCard(1);
@@ -2405,7 +2608,7 @@ function renderComparison() {
     html += renderDeepAnalysis(cmpSlots[0], cmpSlots[1]);
   }
 
-  // ── Legacy multi-deal table (sidebar "Add to Compare") ──
+  // ── Multi-deal comparison table ──
   if(compareDeals.length) {
     html += '<div class="cmp-section-divider"></div>';
     html += '<div class="deep-section-title" style="margin-top:28px">📊 Multi-Deal Comparison ('+compareDeals.length+' deal'+(compareDeals.length>1?'s':'')+')</div>';
@@ -2422,7 +2625,7 @@ function renderComparison() {
     html += '<div class="cmp-empty">'+
       '<div class="cmp-empty-icon">⚖️</div>'+
       '<div style="font-weight:700;font-size:15px">Upload two deal documents above to start comparing</div>'+
-      '<div class="cmp-empty-sub">Or add deals using <strong>➕ Add Current Deal to Compare</strong> in the sidebar.</div>'+
+      '<div class="cmp-empty-sub">Or select documents from history and click "→ Slot A" / "→ Slot B" to load them.</div>'+
     '</div>';
   }
 
@@ -2494,6 +2697,9 @@ if(ANTHROPIC_API_KEY){
   var noteEl=document.getElementById('api-key-note');
   if(noteEl) noteEl.style.display='none';
 }
+
+// Load persisted document history before first render
+loadDocHistory();
 
 // Render all 11 tabs; tab-ask is initialized once (preserving chat history).
 // Chat history greeting is set inside initChatHistory() called from renderAllTabs().
